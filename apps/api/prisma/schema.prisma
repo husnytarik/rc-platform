@@ -1,0 +1,807 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// rc-platform · veri modeli
+// İlkeler:
+//  - Çıplak sayı yok: stok/olay defterleri append-only (createdAt var, updatedAt yok)
+//  - Fiyat & durum & yetki yalnızca sunucuda çözülür; istemci girdisi asla otorite değil
+//  - Her mutasyon activity_log'a, her domain olayı outbox'a
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enumlar ──────────────────────────────────────────────────────────────────
+
+enum OrgType {
+  producer
+  customer
+}
+
+enum Role {
+  producer_admin
+  sales_staff
+  production_staff
+  shipping_staff
+  customer_admin
+  branch_manager
+  customer_user
+}
+
+enum MembershipStatus {
+  active
+  suspended
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum OrderStatus {
+  placed
+  confirmed
+  in_production
+  production_done
+  ready_to_ship
+  in_transit
+  delivered
+  cancelled
+  delivery_issue
+  on_hold
+}
+
+enum OrderLineItemType {
+  product
+  service
+}
+
+enum OrderLineSource {
+  customer
+  sales
+  production
+  shipping
+  system
+}
+
+enum StockReason {
+  purchase // dışarıdan giriş
+  production_in // üretimden giriş
+  order_reserve // sipariş onayında düşüm
+  order_release // iptal/iade ile geri ekleme
+  adjustment // elle düzeltme
+  correction // hata düzeltme
+}
+
+enum StockDisplayState {
+  in_stock
+  limited
+  preorder
+  incoming
+  closed
+}
+
+enum PriceListScope {
+  default
+  customer_group
+  customer
+}
+
+enum VisibilityEffect {
+  allow
+  deny
+}
+
+enum VisibilitySubjectType {
+  all
+  customer_group
+  organization
+}
+
+enum TicketStatus {
+  open
+  pending_staff
+  pending_customer
+  resolved
+  closed
+}
+
+enum ServiceRequestStatus {
+  new
+  in_review
+  scheduled
+  done
+  rejected
+}
+
+enum AnnouncementAudience {
+  all
+  customer_group
+  organization
+}
+
+enum NotificationChannel {
+  push
+  in_app
+  sms
+  email
+}
+
+enum DeliveryStatus {
+  pending
+  sent
+  failed
+  read
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+}
+
+enum OtpPurpose {
+  login
+  register
+  add_device
+}
+
+enum OtpStatus {
+  pending
+  verified
+  expired
+  failed
+}
+
+enum ImportJobType {
+  products
+  prices
+  customers
+}
+
+enum ImportJobStatus {
+  pending
+  dry_run
+  committed
+  failed
+}
+
+enum OutboxStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+// ── Kimlik & organizasyon ────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  type      OrgType
+  name      String
+  slug      String   @unique // trSlug(name)
+  taxId     String?
+  phone     String?
+  email     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches           Branch[]
+  memberships        Membership[]
+  membershipRequests MembershipRequest[]
+  ordersAsCustomer   Order[]             @relation("CustomerOrders")
+  priceLists         PriceList[]
+  groupMemberships   CustomerGroupMember[]
+  serviceRequests    ServiceRequest[]
+  announcementTargets AnnouncementTarget[]
+
+  @@index([type])
+  @@map("organizations")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([orgId])
+  @@map("branches")
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  phone         String   @unique // E.164, +90XXXXXXXXXX — birincil kimlik
+  fullName      String?
+  email         String?
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships        Membership[]
+  membershipRequests MembershipRequest[]
+  refreshTokens      RefreshToken[]
+  deviceTokens       DeviceToken[]
+  otpChallenges      OtpChallenge[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model Membership {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @db.Uuid
+  orgId       String           @db.Uuid
+  role        Role
+  // Kapsam: null = tüm org; ["<branchId>", ...] = yalnız bu şubeler
+  branchScope Json?
+  status      MembershipStatus  @default(active)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId, role])
+  @@index([orgId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model MembershipRequest {
+  id            String        @id @default(uuid()) @db.Uuid
+  userId        String        @db.Uuid
+  // Yeni firma başvurusunda org henüz yoktur; serbest metin taşınır:
+  orgId         String?       @db.Uuid
+  requestedOrgName String?
+  requestedRole Role?
+  phone         String        // başvuru anındaki E.164
+  note          String?
+  payload       Json?         // firma bilgileri: vergi no, adres, şube listesi...
+  status        RequestStatus @default(pending)
+  reviewedBy    String?       @db.Uuid
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization?  @relation(fields: [orgId], references: [id])
+
+  @@index([status])
+  @@map("membership_requests")
+}
+
+// ── Oturum & OTP ─────────────────────────────────────────────────────────────
+
+model OtpChallenge {
+  id          String     @id @default(uuid()) @db.Uuid
+  phone       String     // E.164
+  userId      String?    @db.Uuid // kayıtlı kullanıcıysa
+  purpose     OtpPurpose
+  codeHash    String     // argon2(code) — düz kod asla saklanmaz
+  status      OtpStatus  @default(pending)
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(3)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  requestIp   String?
+  userAgent   String?
+  createdAt   DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phone, createdAt])
+  @@index([status])
+  @@map("otp_challenges")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique // argon2/sha256(token)
+  familyId   String    @db.Uuid // rotation ailesi — biri çalınırsa aile iptal
+  deviceId   String?
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?   @db.Uuid
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model DeviceToken {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @db.Uuid
+  token      String         @unique // Expo push token
+  platform   DevicePlatform
+  deviceName String?
+  lastSeenAt DateTime       @default(now())
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// ── Katalog ──────────────────────────────────────────────────────────────────
+
+model Category {
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String
+  slug     String  @unique
+  parentId String? @db.Uuid
+  sortOrder Int    @default(0)
+  isActive Boolean @default(true)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique // Excel/Sheets senkron anahtarı
+  name        String
+  slug        String
+  description String?
+  categoryId  String?  @db.Uuid
+  brand       String?
+  imageUrl    String?
+  isService   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  // Ön sipariş işaretli ürünlerde stok eksiye düşebilir
+  allowPreorder Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category        Category?              @relation(fields: [categoryId], references: [id])
+  variants        ProductVariant[]
+  displayOverride StockDisplayOverride?
+  visibilityRules VisibilityRule[]
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductVariant {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  code      String   @unique
+  name      String   // "1kg / Çekirdek", "250g / Filtre" ...
+  attributes Json?   // { size: "1kg", grind: "bean" }
+  basePrice Decimal  @db.Decimal(12, 2) // varsayılan liste fiyatı referansı
+  unit      String   @default("adet")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product        Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceListItems PriceListItem[]
+  stockMovements StockMovement[]
+  orderLines     OrderLine[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ── Fiyat ────────────────────────────────────────────────────────────────────
+
+model PriceList {
+  id        String         @id @default(uuid()) @db.Uuid
+  name      String
+  scope     PriceListScope
+  orgId     String?        @db.Uuid // scope=customer
+  groupId   String?        @db.Uuid // scope=customer_group
+  currency  String         @default("TRY")
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  org   Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  group CustomerGroup?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  items PriceListItem[]
+
+  @@index([scope])
+  @@index([orgId])
+  @@index([groupId])
+  @@map("price_lists")
+}
+
+model PriceListItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  priceListId String   @db.Uuid
+  variantId   String   @db.Uuid
+  price       Decimal  @db.Decimal(12, 2)
+  minQty      Int      @default(1)
+  validFrom   DateTime?
+  validTo     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  priceList PriceList      @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, variantId, minQty])
+  @@index([variantId])
+  @@map("price_list_items")
+}
+
+// ── Müşteri grupları & görünürlük ────────────────────────────────────────────
+
+model CustomerGroup {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  members    CustomerGroupMember[]
+  priceLists PriceList[]
+
+  @@map("customer_groups")
+}
+
+model CustomerGroupMember {
+  groupId String @db.Uuid
+  orgId   String @db.Uuid
+
+  group CustomerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  org   Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, orgId])
+  @@map("customer_group_members")
+}
+
+model VisibilityRule {
+  id          String                @id @default(uuid()) @db.Uuid
+  productId   String                @db.Uuid
+  subjectType VisibilitySubjectType
+  subjectId   String?               @db.Uuid // group veya org id; all ise null
+  effect      VisibilityEffect
+  createdAt   DateTime              @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([subjectType, subjectId])
+  @@map("visibility_rules")
+}
+
+// ── Stok ─────────────────────────────────────────────────────────────────────
+// Append-only defter. Bakiye = SUM(delta). Satır güncellenmez/silinmez.
+
+model StockMovement {
+  id         String      @id @default(uuid()) @db.Uuid
+  variantId  String      @db.Uuid
+  delta      Int // + giriş, - çıkış
+  reason     StockReason
+  refOrderId String?     @db.Uuid
+  note       String?
+  actorId    String?     @db.Uuid
+  createdAt  DateTime    @default(now())
+
+  variant  ProductVariant @relation(fields: [variantId], references: [id])
+  refOrder Order?         @relation(fields: [refOrderId], references: [id])
+
+  @@index([variantId, createdAt])
+  @@map("stock_movements")
+}
+
+model StockDisplayOverride {
+  productId String            @id @db.Uuid
+  state     StockDisplayState @default(in_stock)
+  note      String?
+  updatedBy String?           @db.Uuid
+  updatedAt DateTime          @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("stock_display_overrides")
+}
+
+// ── Sipariş ──────────────────────────────────────────────────────────────────
+
+model Order {
+  id             String      @id @default(uuid()) @db.Uuid
+  keyCode        String      @unique // RC-2026-000123
+  customerOrgId  String      @db.Uuid
+  branchId       String      @db.Uuid
+  status         OrderStatus @default(placed)
+  currency       String      @default("TRY")
+  subtotal       Decimal     @default(0) @db.Decimal(12, 2)
+  total          Decimal     @default(0) @db.Decimal(12, 2)
+  note           String?
+  placedBy       String?     @db.Uuid
+  expectedAt     DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  customerOrg Organization    @relation("CustomerOrders", fields: [customerOrgId], references: [id])
+  branch      Branch          @relation(fields: [branchId], references: [id])
+  lines       OrderLine[]
+  events      OrderEvent[]
+  tickets     Ticket[]
+  stockMoves  StockMovement[]
+
+  @@index([customerOrgId, createdAt])
+  @@index([branchId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderLine {
+  id         String            @id @default(uuid()) @db.Uuid
+  orderId    String            @db.Uuid
+  itemType   OrderLineItemType @default(product)
+  variantId  String?           @db.Uuid // itemType=product
+  serviceId  String?           @db.Uuid // itemType=service
+  nameSnapshot String          // eklenme anındaki ad
+  qty        Int
+  unitPrice  Decimal           @db.Decimal(12, 2) // sunucu snapshot'ı — istemciden gelmez
+  lineTotal  Decimal           @db.Decimal(12, 2)
+  source     OrderLineSource   @default(customer)
+  addedBy    String?           @db.Uuid
+  createdAt  DateTime          @default(now())
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  service Service?        @relation(fields: [serviceId], references: [id])
+
+  @@index([orderId])
+  @@map("order_lines")
+}
+
+// Append-only denetim: her durum geçişi + önemli mutasyon.
+model OrderEvent {
+  id         String       @id @default(uuid()) @db.Uuid
+  orderId    String       @db.Uuid
+  fromStatus OrderStatus?
+  toStatus   OrderStatus?
+  type       String // "transition" | "line_added" | "line_removed" | "note" ...
+  actorId    String?      @db.Uuid
+  actorRole  Role?
+  note       String?
+  meta       Json?
+  createdAt  DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_events")
+}
+
+// ── Destek ───────────────────────────────────────────────────────────────────
+
+model Ticket {
+  id        String       @id @default(uuid()) @db.Uuid
+  keyCode   String       @unique // DST-2026-000045
+  orgId     String       @db.Uuid
+  orderId   String?      @db.Uuid // key_code ile siparişe bağ
+  subject   String
+  status    TicketStatus @default(open)
+  openedBy  String?      @db.Uuid
+  assignedTo String?     @db.Uuid
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  order    Order?          @relation(fields: [orderId], references: [id])
+  messages TicketMessage[]
+
+  @@index([orgId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @db.Uuid
+  authorId  String?  @db.Uuid
+  body      String
+  attachments Json?  // [{ url, name, size }]
+  isInternal Boolean @default(false) // yalnız üretici tarafı görür
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+// ── Hizmet & randevu ─────────────────────────────────────────────────────────
+
+model Service {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  basePrice   Decimal? @db.Decimal(12, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  requests   ServiceRequest[]
+  orderLines OrderLine[]
+
+  @@map("services")
+}
+
+model ServiceRequest {
+  id          String               @id @default(uuid()) @db.Uuid
+  serviceId   String               @db.Uuid
+  orgId       String               @db.Uuid
+  status      ServiceRequestStatus @default(new)
+  note        String?
+  createdBy   String?              @db.Uuid
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  service     Service      @relation(fields: [serviceId], references: [id])
+  org         Organization @relation(fields: [orgId], references: [id])
+  appointments Appointment[]
+
+  @@index([orgId])
+  @@index([status])
+  @@map("service_requests")
+}
+
+model Appointment {
+  id               String   @id @default(uuid()) @db.Uuid
+  serviceRequestId String   @db.Uuid
+  scheduledAt      DateTime
+  durationMin      Int      @default(60)
+  location         String?
+  note             String?
+  createdAt        DateTime @default(now())
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt])
+  @@map("appointments")
+}
+
+// ── Duyuru ───────────────────────────────────────────────────────────────────
+
+model Announcement {
+  id         String               @id @default(uuid()) @db.Uuid
+  title      String
+  body       String
+  audience   AnnouncementAudience  @default(all)
+  publishedAt DateTime?
+  expiresAt  DateTime?
+  createdBy  String?              @db.Uuid
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  targets AnnouncementTarget[]
+
+  @@index([publishedAt])
+  @@map("announcements")
+}
+
+model AnnouncementTarget {
+  id             String   @id @default(uuid()) @db.Uuid
+  announcementId String   @db.Uuid
+  groupId        String?  @db.Uuid
+  orgId          String?  @db.Uuid
+
+  announcement Announcement  @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@map("announcement_targets")
+}
+
+// ── Bildirim ─────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String // "order.status" | "ticket.reply" | "announcement" ...
+  title     String
+  body      String
+  data      Json? // deep-link payload: { orderId, ticketId, ... }
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String              @id @default(uuid()) @db.Uuid
+  notificationId String              @db.Uuid
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(pending)
+  providerRef    String?
+  error          String?
+  attemptedAt    DateTime?
+  createdAt      DateTime            @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@map("notification_deliveries")
+}
+
+// ── Veri aktarımı ────────────────────────────────────────────────────────────
+
+model ImportJob {
+  id         String          @id @default(uuid()) @db.Uuid
+  type       ImportJobType
+  status     ImportJobStatus @default(pending)
+  fileUrl    String?
+  summary    Json? // { total, created, updated, skipped, errors: [...] }
+  rowErrors  Json?
+  createdBy  String?         @db.Uuid
+  createdAt  DateTime        @default(now())
+  committedAt DateTime?
+
+  @@index([type, status])
+  @@map("import_jobs")
+}
+
+// ── Denetim & olay yayını ────────────────────────────────────────────────────
+// Append-only.
+
+model ActivityLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  actorRole  Role?
+  orgId      String?  @db.Uuid
+  action     String // "order.confirm" | "price_list.update" | "membership.approve" ...
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([orgId, createdAt])
+  @@map("activity_log")
+}
+
+model OutboxEvent {
+  id          String       @id @default(uuid()) @db.Uuid
+  topic       String // "order.status_changed" | "ticket.replied" ...
+  payload     Json
+  status      OutboxStatus @default(pending)
+  attempts    Int          @default(0)
+  lastError   String?
+  availableAt DateTime     @default(now()) // gecikmeli/yeniden deneme
+  processedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@index([status, availableAt])
+  @@map("outbox_events")
+}

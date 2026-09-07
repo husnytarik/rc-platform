@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# env & secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.key
+*.keystore
+*.jks
+credentials.json
+credentials/
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# test / coverage
+coverage/
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
