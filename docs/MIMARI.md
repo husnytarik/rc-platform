@@ -397,7 +397,9 @@ Phone Auth, Cloud Functions çağrıları ve BigQuery aktarımının *tamamını
 | Android imza anahtarı | Play App Signing açık mı? / orijinal keystore elde mi? | ⏳ kullanıcı kontrol edecek — ilk submit öncesi blocker |
 | Çok üreticili (multi-tenant) | Tek üretici varsayımı — şemada imkânsız kılınmayacak | ✅ varsayım kabul |
 | Müşteri grubu derinliği | Basit grup şimdi / kurallı segmentasyon sonra | ⏳ sonra |
-| Repodaki gizli anahtarlar | keystore + `credentials.json` + `.env` git geçmişinden temizlik | ⏳ yapılacak |
+| Repo yapısı | Yeni temiz monorepo `rc-platform` (pnpm + Turborepo). Eski repo salt-okunur referans. Mobil app Faz 4'te `apps/mobile`'a kopyalanır | ✅ karar verildi |
+| Geliştirme veritabanı | Neon (bulut Postgres). Prod'da da Neon/Railway | ✅ karar verildi |
+| Eski repodaki gizli anahtarlar | Apple `.p8` + keystore + `credentials.json` yeni repoya taşınmadı; eski repo `rc_controlcenter` için Apple anahtarı iptal/yenile | ⏳ yapılacak |
 
 ---
 
