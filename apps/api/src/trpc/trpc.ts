@@ -50,3 +50,17 @@ export function capabilityProcedure(cap: Capability) {
     return next();
   });
 }
+
+/** Verilen yeteneklerden en az biri yetiyorsa geçer (ör. `view.own` VEYA `view.all`). */
+export function capabilityAnyProcedure(caps: readonly Capability[]) {
+  return protectedProcedure.use(({ ctx, next }) => {
+    const user = ctx.user as AuthedUser;
+    if (user.memberships.length === 0) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Hesabınız henüz onaylanmadı.' });
+    }
+    if (!caps.some((c) => canAny(user.roles, c))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Bu işlem için yetkiniz yok.' });
+    }
+    return next();
+  });
+}

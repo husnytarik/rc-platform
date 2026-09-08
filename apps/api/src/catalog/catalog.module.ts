@@ -7,6 +7,6 @@ import { VisibilityService } from './visibility.service';
 /** PrismaModule global; katalog servisleri fiyat + görünürlük + stoğu birleştirir. */
 @Module({
   providers: [CatalogService, PriceService, StockService, VisibilityService],
-  exports: [CatalogService, PriceService],
+  exports: [CatalogService, PriceService, StockService, VisibilityService],
 })
 export class CatalogModule {}

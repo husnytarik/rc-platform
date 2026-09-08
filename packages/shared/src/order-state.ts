@@ -96,3 +96,23 @@ export function nextTransitions(from: OrderStatus, role: Role): Transition[] {
 export function isTerminal(s: OrderStatus): boolean {
   return TERMINAL_STATUSES.includes(s);
 }
+
+/**
+ * Bu durumdayken sipariş için stok zaten rezerve edilmiştir (onay anında düşülür).
+ * Sipariş bu durumlardan iptal edilirse stok defterine geri ekleme (`order_release`)
+ * yazılmalıdır.
+ */
+const RESERVED_STATUSES: readonly OrderStatus[] = [
+  'confirmed',
+  'in_production',
+  'production_done',
+  'ready_to_ship',
+  'in_transit',
+  'delivered',
+  'delivery_issue',
+  'on_hold',
+];
+
+export function stockIsReserved(s: OrderStatus): boolean {
+  return RESERVED_STATUSES.includes(s);
+}

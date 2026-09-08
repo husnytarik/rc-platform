@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { OrderModule } from '../orders/order.module';
 import { TrpcService } from './trpc.service';
 
 /**
  * PrismaModule global; AuthModule `AuthService` + `TokenService`, CatalogModule
- * `CatalogService` export eder.
+ * `CatalogService`, OrderModule `OrderService` export eder.
  */
 @Module({
-  imports: [AuthModule, CatalogModule],
+  imports: [AuthModule, CatalogModule, OrderModule],
   providers: [TrpcService],
   exports: [TrpcService],
 })

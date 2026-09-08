@@ -831,3 +831,13 @@ model OutboxEvent {
   @@index([status, availableAt])
   @@map("outbox_events")
 }
+
+// Yıl bazlı sıra sayaçları — insan-okunur anahtar kodları (RC-2026-000123).
+// Artış sipariş oluşturma transaction'ı içinde atomik yapılır.
+model Counter {
+  key       String   @id // "order:2026", "ticket:2026" ...
+  value     BigInt   @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("counters")
+}

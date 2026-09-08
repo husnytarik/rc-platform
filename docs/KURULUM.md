@@ -57,8 +57,19 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 - Neon tohum verisiyle doğrulandı: üretici KPD-ESPRESSO'yu görür, `+905321112233` müşterisi görmez; müşteri GTM-ANTIGUA-1KG'de grup fiyatı 445, CB-KONSANTRE-1L'de özel fiyat 199 alır; rozetler out/preorder/low doğru; `available` müşteri yanıtında hep `null`; gizli ürün slug ile de çekilemiyor (`NOT_FOUND`).
 - `@rc/shared` birim testleri: `pnpm --filter @rc/shared test` → 14 test (uom).
 
+## Sipariş oluşturma + durum geçişi — bağlandı ✅
+
+- **Anahtar kod** — `model Counter` (yıl bazlı sayaç, `counters` tablosu; migration `20260908140209_orders_counter`). Sipariş oluşturma transaction'ı içinde `upsert` + `increment` ile atomik artar → `RC-2026-000001` biçiminde insan-okunur `keyCode`.
+- `apps/api/src/orders/`:
+  - `order.service.ts` — `createOrder` / `transition` / `getOrder` / `listOrders`.
+    - **createOrder** (yalnız müşteri rolleri): şube müşteriye ait + aktif mi, üyelik `branchScope` şubeyi kapsıyor mu; aynı varyant satırları birleştirilir; varyant aktif + ürün görünür (gizli değil) mi; `validateQty` (birim/asgari/adım); fiyat **sunucuda** `PriceService.resolveOne` ile çözülür; satır/ara toplam `Decimal(12,3/2)`. Tek `$transaction`: `order` + `order_line`'lar + `order_event` (`placed`) + `activity_log` + `outbox` (`order.placed`). **Stok bu aşamada düşmez.**
+    - **transition** — `TRANSITIONS` tablosunda tanımlı mı, `canTransition(from,to,role)` (producer_admin baypas) yetki verir mi. Tek `$transaction`: `decrementsStock` geçişinde (`placed→confirmed`) her ürün satırı için negatif `stock_movement` (`order_reserve`); `cancelled`'a `stockIsReserved(from)` durumundan geçişte pozitif `stock_movement` (`order_release`); `order.status` güncelle + `order_event` (`transition`) + `activity_log` + `outbox` (`order.status_changed`).
+    - **getOrder / listOrders** — `keyCode` veya uuid ile; müşteri yalnız kendi org'unun siparişlerini görür, üretici tarafı hepsini; cursor sayfalama.
+- `routers/order.router.ts` — `orders.create` (`capabilityProcedure('order.create')`) · `orders.list` · `orders.get` (`order.view.own` VEYA `order.view.all`) · `orders.transition` (`order.confirm`/`order.cancel`/`production.advance`/`shipping.advance` — herhangi biri). `trpc.ts`'e `capabilityAnyProcedure(caps)` eklendi.
+- Neon tohum verisiyle uçtan uca doğrulandı (**31/31**): `RC-2026-000001` fiyatları 445.00/199.00, toplam 6534.00; `placed`'de stok sabit; `placed→confirmed` tam sipariş miktarı kadar 2 `order_reserve` hareketi; `delivered`'a kadar zincir 7 olay, çift düşüm yok; `confirmed→cancelled` `order_release` ile bakiye geri; 6 negatif senaryo (`FORBIDDEN`/`BAD_REQUEST`) beklendiği gibi.
+- `@rc/shared` birim testleri: `pnpm --filter @rc/shared test` → 23 test (14 uom + 9 order-state).
+
 ## Sıradaki iş
 
-- Sipariş oluşturma + durum geçişi endpoint'leri (durum makinesi + `order_events` + stok düşümü aynı transaction)
 - `apps/admin` (Next.js + Refine) kabuğu
 - Worker (pg-boss): `outbox` → bildirim
