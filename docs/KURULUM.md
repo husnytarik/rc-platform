@@ -13,22 +13,27 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
   - `POST /auth/otp/verify` — kod doğrula (argon2 hash, deneme limiti); yeni numara → kullanıcı + `membership_request` (yönetici onayına düşer); sonuç `state: active | pending`
   - `POST /auth/refresh` — rotating refresh, aile bazlı; yeniden-kullanım tespitinde aile iptali
   - `POST /auth/logout` — refresh iptal
-- **Güvenlik/gözlem tabanı** — env açılışta zod ile doğrulanır (eksikse başlamaz), helmet, global rate-limit, `activity_log`, `ValidationPipe` (whitelist + forbidNonWhitelisted), `/health` DB kontrolü.
+- **Güvenlik/gözlem tabanı** — env açılışta zod ile doğrulanır (eksikse başlamaz), helmet, global rate-limit, `activity_log`, girdi doğrulama zod + `ZodExceptionFilter` (400 + alan bazlı `issues`), `/health` DB kontrolü.
 - Kök `.env` üretildi; JWT secret'ları hazır. Sırlar `.gitignore`'da; commit edilmez.
 
-## Senin yapman gerekenler (kurulumu tamamlamak için)
+## Neon bağlandı — çalışan sistem ✅
 
-1. **Neon hesabı + proje**: <https://neon.tech> → yeni proje (region: `eu-central-1` / Frankfurt önerilir), veritabanı adı `rc`.
-2. Neon panelinden iki bağlantı dizesini al ve kök `.env` içine yapıştır:
-   - **Pooled** connection string → `DATABASE_URL`
-   - **Direct** (pooling kapalı) connection string → `DIRECT_URL`
-3. Bana "Neon hazır" de — ben şunları çalıştırırım:
-   ```
-   pnpm db:migrate      # şemayı Neon'a uygular (ilk migration)
-   pnpm --filter @rc/api db:seed   # üretici org + varsayılan fiyat listesi + yönetici
-   pnpm --filter @rc/api dev       # API'yi ayağa kaldırır, /health yeşil olmalı
-   ```
-4. Yeni GitHub repo (`rc-platform`, private) açıp bağlamak istersen: repo URL'ini ver, remote ekleyip push ederim. (Zorunlu değil, yerelde ilerleyebiliriz.)
+- Neon projesi `neondb` (Frankfurt / eu-central-1), pooled → `DATABASE_URL`, direct → `DIRECT_URL`.
+- İlk migration (`20260908054435_init`) Neon'a uygulandı.
+- Seed çalıştı: üretici org `roasteryclub` + varsayılan fiyat listesi + yönetici (`+905000000000`).
+- API ayakta: `GET /health` → `{"ok":true,"db":true}`.
+- Uçtan uca doğrulandı:
+  - `POST /auth/otp/request` → `{expiresInSec:300}`, kod dev'de log'a yazılıyor
+  - `POST /auth/otp/verify` → `accessToken` + `refreshToken` + `state:active`
+  - `POST /auth/refresh` → rotasyon; eski token tekrar kullanılınca **aile iptali** (401)
+  - Hatalı kod → 400; geçersiz girdi → 400 `ValidationError`
+- Komutlar: `pnpm --filter @rc/api dev` (API), `pnpm db:studio` (veri tarayıcı).
+
+## Senin yapman gerekenler
+
+1. Yeni GitHub repo (`rc-platform`, private) açıp bağlamak istersen: repo URL'ini ver, remote ekleyip push ederim. (Zorunlu değil, yerelde ilerliyoruz.)
+2. Netgsm bilgileri (usercode / password / sender) hazır olunca `.env`'e ekle — `OTP_DEV_ECHO=false` yapınca gerçek SMS gider.
+3. Eski repo `rc_controlcenter` için Apple `.p8` anahtarını iptal/yenile (sızıntı temizliği; acil değil).
 
 ## Sıradaki iş (Neon bağlandıktan sonra)
 
