@@ -93,6 +93,21 @@ enum PriceListScope {
   customer
 }
 
+// Ölçü birimi. `cuval` = çuval (Prisma enum Türkçe karakter kabul etmez);
+// görünen etiketler @rc/shared UOM_LABELS_TR içinde.
+enum Uom {
+  g
+  kg
+  ml
+  cl
+  l
+  adet
+  paket
+  kutu
+  koli
+  cuval
+}
+
 enum VisibilityEffect {
   allow
   deny
@@ -396,8 +411,18 @@ model ProductVariant {
   code      String   @unique
   name      String   // "1kg / Çekirdek", "250g / Filtre" ...
   attributes Json?   // { size: "1kg", grind: "bean" }
-  basePrice Decimal  @db.Decimal(12, 2) // varsayılan liste fiyatı referansı
-  unit      String   @default("adet")
+
+  // Sipariş birimi: müşteri miktarı bu birimde girer, fiyat bu birim başına.
+  orderUom    Uom     @default(adet)
+  basePrice   Decimal @db.Decimal(12, 2) // orderUom başına varsayılan liste fiyatı
+  minOrderQty Decimal @default(1) @db.Decimal(12, 3)
+  qtyStep     Decimal @default(1) @db.Decimal(12, 3)
+  // Bir sipariş biriminin fiziksel içeriği (250 g paket → 250 + g). Raporlama/gösterim.
+  contentAmount Decimal? @db.Decimal(12, 3)
+  contentUom    Uom?
+  // Bu değerin altında müşteriye "az kaldı" rozeti. null = uyarı yok. Gerçek adet gizli.
+  lowStockThreshold Decimal? @db.Decimal(12, 3)
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -499,7 +524,7 @@ model VisibilityRule {
 model StockMovement {
   id         String      @id @default(uuid()) @db.Uuid
   variantId  String      @db.Uuid
-  delta      Int // + giriş, - çıkış
+  delta      Decimal     @db.Decimal(12, 3) // + giriş, - çıkış (variant.orderUom cinsinden)
   reason     StockReason
   refOrderId String?     @db.Uuid
   note       String?
@@ -562,7 +587,8 @@ model OrderLine {
   variantId  String?           @db.Uuid // itemType=product
   serviceId  String?           @db.Uuid // itemType=service
   nameSnapshot String          // eklenme anındaki ad
-  qty        Int
+  qty        Decimal           @db.Decimal(12, 3)
+  uomSnapshot Uom              @default(adet) // eklenme anındaki sipariş birimi
   unitPrice  Decimal           @db.Decimal(12, 2) // sunucu snapshot'ı — istemciden gelmez
   lineTotal  Decimal           @db.Decimal(12, 2)
   source     OrderLineSource   @default(customer)

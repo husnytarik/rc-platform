@@ -1,9 +1,12 @@
 import type { AuthService } from '../auth/auth.service';
+import type { CatalogService } from '../catalog/catalog.service';
 import { makeAuthRouter } from './routers/auth.router';
+import { makeCatalogRouter } from './routers/catalog.router';
 import { router } from './trpc';
 
 interface RouterDeps {
   auth: AuthService;
+  catalog: CatalogService;
 }
 
 /**
@@ -13,6 +16,7 @@ interface RouterDeps {
 export function makeAppRouter(deps: RouterDeps) {
   return router({
     auth: makeAuthRouter(deps.auth),
+    catalog: makeCatalogRouter(deps.catalog),
   });
 }
 

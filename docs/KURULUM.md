@@ -32,7 +32,7 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 ## Senin yapman gerekenler
 
 1. Yeni GitHub repo (`rc-platform`, private) açıp bağlamak istersen: repo URL'ini ver, remote ekleyip push ederim. (Zorunlu değil, yerelde ilerliyoruz.)
-2. Netgsm bilgileri (usercode / password / sender) hazır olunca `.env`'e ekle — `OTP_DEV_ECHO=false` yapınca gerçek SMS gider.
+2. SMS/WhatsApp sağlayıcı — sonra seçilecek. Şimdilik `OTP_DEV_ECHO=true` ve OTP kodu log'a yazılıyor; sağlayıcı seçilince `SmsService` arkasına takılır, `.env`'e kimlik bilgileri eklenip `OTP_DEV_ECHO=false` yapılır.
 3. Eski repo `rc_controlcenter` için Apple `.p8` anahtarını iptal/yenile (sızıntı temizliği; acil değil).
 
 ## tRPC katmanı — bağlandı ✅
@@ -45,9 +45,20 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 - Hata biçimi: stack trace yanıttan çıkarılır (log'da kalır); girdi hatası `data.zod.fieldErrors` ile döner.
 - Doğrulandı: OTP akışı tRPC üzerinden çalışıyor, `auth.me` token'lı → `roles:["producer_admin"]`, token'sız → 401.
 
+## Katalog + fiyat + ölçü birimi — bağlandı ✅
+
+- **Ölçü birimi** (`@rc/shared/uom.ts` + `Uom` enum): ürünler farklı birimlerde satılır — ağırlık (g/kg), hacim (ml/cl/L), sayı/ambalaj (adet/paket/kutu/koli/çuval). Her varyantta `orderUom` (müşteri bu birimde miktar girer, fiyat bu birim başına), `minOrderQty`, `qtyStep`, opsiyonel `contentAmount`/`contentUom` (250 g paket → gösterim/raporlama), `lowStockThreshold`. `validateQty` sayı birimlerinde tam sayı + asgari + adım katı kuralını uygular; `convertUom` yalnız aynı tür içinde çevirir. `OrderLine.qty`/`StockMovement.delta` artık `Decimal(12,3)`, `OrderLine.uomSnapshot` eklenme anını dondurur.
+- `apps/api/src/catalog/`:
+  - `price.service.ts` — fiyat **yalnız sunucuda** çözülür. Öncelik: müşteriye özel liste → müşteri grubu → varsayılan → `variant.basePrice`. İlk kademe eşleşen liste kazanır; kademe = en büyük `minQty ≤ qty`; bir üst kademe `nextTier` olarak döner.
+  - `visibility.service.ts` — `deny` kuralı gizler; özgüllük organization > customer_group > all. Üretici tarafı her şeyi görür.
+  - `stock.service.ts` — bakiye = `SUM(delta)`; müşteriye **gerçek adet sızmaz**, yalnız rozet (`in`/`low`/`out`/`preorder`/`incoming`/`closed`). `StockDisplayOverride` rozeti ezer.
+  - `catalog.service.ts` — `ctx.user`'dan görünüm bağlamı (üretici mi / hangi org / hangi gruplar) türetir, üçünü birleştirir.
+- `routers/catalog.router.ts` — `catalog.categories` · `catalog.list` (kategori/arama + cursor) · `catalog.product` (id|slug). Hepsi `capabilityProcedure('catalog.view')`.
+- Neon tohum verisiyle doğrulandı: üretici KPD-ESPRESSO'yu görür, `+905321112233` müşterisi görmez; müşteri GTM-ANTIGUA-1KG'de grup fiyatı 445, CB-KONSANTRE-1L'de özel fiyat 199 alır; rozetler out/preorder/low doğru; `available` müşteri yanıtında hep `null`; gizli ürün slug ile de çekilemiyor (`NOT_FOUND`).
+- `@rc/shared` birim testleri: `pnpm --filter @rc/shared test` → 14 test (uom).
+
 ## Sıradaki iş
 
-- Katalog + fiyat çözümü servisi (müşteriye özel → grup → default)
 - Sipariş oluşturma + durum geçişi endpoint'leri (durum makinesi + `order_events` + stok düşümü aynı transaction)
 - `apps/admin` (Next.js + Refine) kabuğu
 - Worker (pg-boss): `outbox` → bildirim
