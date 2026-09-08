@@ -35,9 +35,18 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 2. Netgsm bilgileri (usercode / password / sender) hazır olunca `.env`'e ekle — `OTP_DEV_ECHO=false` yapınca gerçek SMS gider.
 3. Eski repo `rc_controlcenter` için Apple `.p8` anahtarını iptal/yenile (sızıntı temizliği; acil değil).
 
-## Sıradaki iş (Neon bağlandıktan sonra)
+## tRPC katmanı — bağlandı ✅
 
-- tRPC router iskeleti + access-token guard + `ctx` (kullanıcı + membership'ler + capability kontrolü)
+- `apps/api/src/trpc/`: `initTRPC` + superjson, `/trpc` prefix'inde Fastify eklentisi.
+- `trpc-context.ts` — her istekte `Authorization: Bearer` → access token doğrula → kullanıcı + aktif üyelikler + rol seti. Token yoksa `user: null`.
+- `trpc.ts` — `publicProcedure` / `protectedProcedure` (oturum şart) / `capabilityProcedure(cap)` (aktif üyelik + RBAC matrisi `canAny`).
+- `routers/auth.router.ts` — `auth.requestOtp` · `auth.verifyOtp` · `auth.refresh` · `auth.logout` · `auth.me` (oturum sahibinin profili + rolleri). REST `AuthController` aynı zod sözleşmesini (`auth.schemas.ts`) paylaşarak duruyor; istemciler tRPC'ye geçince kaldırılacak.
+- `AppRouter` tipi export ediliyor — admin paneli + mobil uçtan uca tip güvenliği için import eder.
+- Hata biçimi: stack trace yanıttan çıkarılır (log'da kalır); girdi hatası `data.zod.fieldErrors` ile döner.
+- Doğrulandı: OTP akışı tRPC üzerinden çalışıyor, `auth.me` token'lı → `roles:["producer_admin"]`, token'sız → 401.
+
+## Sıradaki iş
+
 - Katalog + fiyat çözümü servisi (müşteriye özel → grup → default)
 - Sipariş oluşturma + durum geçişi endpoint'leri (durum makinesi + `order_events` + stok düşümü aynı transaction)
 - `apps/admin` (Next.js + Refine) kabuğu

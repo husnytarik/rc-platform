@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { TrpcModule } from './trpc/trpc.module';
 import { HealthController } from './health/health.controller';
 import { AuditInterceptor } from './common/audit.interceptor';
 
@@ -17,6 +18,7 @@ import { AuditInterceptor } from './common/audit.interceptor';
     }),
     PrismaModule,
     AuthModule,
+    TrpcModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],

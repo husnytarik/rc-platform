@@ -4,8 +4,10 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
+import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { AppModule } from './app.module';
 import { ZodExceptionFilter } from './common/zod-exception.filter';
+import { TrpcService } from './trpc/trpc.service';
 
 /**
  * NestJS'in sardığı Fastify tipi ile eklenti augmentasyonları arasındaki
@@ -14,6 +16,7 @@ import { ZodExceptionFilter } from './common/zod-exception.filter';
 type FastifyPlugin = Parameters<NestFastifyApplication['register']>[0];
 const helmet = fastifyHelmet as unknown as FastifyPlugin;
 const rateLimit = fastifyRateLimit as unknown as FastifyPlugin;
+const trpcPlugin = fastifyTRPCPlugin as unknown as FastifyPlugin;
 
 async function bootstrap(): Promise<void> {
   const adapter = new FastifyAdapter({
@@ -40,6 +43,20 @@ async function bootstrap(): Promise<void> {
 
   // Girdi doğrulama zod ile controller/procedure seviyesinde yapılır (tRPC ile ortak sözleşme).
   app.useGlobalFilters(new ZodExceptionFilter());
+
+  // tRPC — ana API yüzeyi. REST auth uçları istemciler geçene kadar duruyor.
+  const trpc = app.get(TrpcService);
+  await app.register(trpcPlugin, {
+    prefix: '/trpc',
+    trpcOptions: {
+      router: trpc.appRouter,
+      createContext: trpc.createContext,
+      onError({ path, error }: { path?: string; error: { code: string; message: string } }) {
+        new Logger('trpc').warn(`${path ?? '<yol yok>'} → ${error.code}: ${error.message}`);
+      },
+    },
+  });
+
   app.enableShutdownHooks();
 
   const port = Number(process.env.API_PORT ?? 3001);
