@@ -1,10 +1,11 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { AppModule } from './app.module';
+import { ZodExceptionFilter } from './common/zod-exception.filter';
 
 /**
  * NestJS'in sardığı Fastify tipi ile eklenti augmentasyonları arasındaki
@@ -37,9 +38,8 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
-  );
+  // Girdi doğrulama zod ile controller/procedure seviyesinde yapılır (tRPC ile ortak sözleşme).
+  app.useGlobalFilters(new ZodExceptionFilter());
   app.enableShutdownHooks();
 
   const port = Number(process.env.API_PORT ?? 3001);

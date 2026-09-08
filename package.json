@@ -13,9 +13,10 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
-    "db:migrate": "pnpm --filter @rc/api exec prisma migrate dev",
-    "db:studio": "pnpm --filter @rc/api exec prisma studio",
-    "db:generate": "pnpm --filter @rc/api exec prisma generate"
+    "db:migrate": "pnpm --filter @rc/api run prisma:migrate",
+    "db:seed": "pnpm --filter @rc/api run db:seed",
+    "db:studio": "pnpm --filter @rc/api run prisma:studio",
+    "db:generate": "pnpm --filter @rc/api run prisma:generate"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
