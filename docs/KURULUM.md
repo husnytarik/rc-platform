@@ -69,7 +69,22 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 - Neon tohum verisiyle uçtan uca doğrulandı (**31/31**): `RC-2026-000001` fiyatları 445.00/199.00, toplam 6534.00; `placed`'de stok sabit; `placed→confirmed` tam sipariş miktarı kadar 2 `order_reserve` hareketi; `delivered`'a kadar zincir 7 olay, çift düşüm yok; `confirmed→cancelled` `order_release` ile bakiye geri; 6 negatif senaryo (`FORBIDDEN`/`BAD_REQUEST`) beklendiği gibi.
 - `@rc/shared` birim testleri: `pnpm --filter @rc/shared test` → 23 test (14 uom + 9 order-state).
 
+## Tasarım token'ları (`@rc/shared/theme`) — bağlandı ✅
+
+- `packages/shared/src/theme.ts` — framework'süz tek kaynak. `BRAND` (yeşil 50–900, 500=`#2f7d49`), `NEUTRAL` (yeşile çalan griler), `SEMANTIC` (`success/warning/danger/info`), `SPACE` · `RADIUS` · `FONT_SIZE` · `ELEVATION` · `MOTION`.
+- `brandRamp(intensity=1)` — HSL doygunluğunu 0.7–1.4 arasında ölçekler ("yoğunlaştırılabilir" yeşil). `ORDER_STATUS_META` — her `OrderStatus` için `{ tone, color, icon }` (lucide ikon adları).
+- `apps/admin/src/app/globals.css` bu token'ları CSS değişkeni olarak birebir yansıtır; açık/koyu tema `prefers-color-scheme` ile.
+
+## `apps/admin` (Next.js) kabuğu — bağlandı ✅
+
+- **Yığın:** Next 15 App Router + React 19 + tRPC v11 (`@trpc/react-query`) + React Query v5. Refine **kullanılmadı** — v4 peer'ları React 19 / RQ v5 ile uyumsuz; yerine ince "plain Next + tRPC + context" yaklaşımı.
+- **Tip köprüsü:** `apps/api` `nest build` ile `.d.ts` üretir; `apps/api/package.json` `exports` → `@rc/api/app-router`. Admin `import type { AppRouter }` ile uçtan uca tip alır (turbo `typecheck` `^build`'e bağlı).
+- `src/lib/` — `trpc.ts` (React client) · `trpc-vanilla.ts` (React dışı çağrılar) · `auth-store.ts` (localStorage aynası, `rc.admin.access`/`rc.admin.refresh`) · `session.ts` (`refreshSession` tek uçuş + `endSession`) · `identity.ts` · `format.ts` (₺ / tarih / yaş) · `nav.ts` (10 bölüm, `cap` görünürlük eşlemesi).
+- `src/providers/auth-context.tsx` — `AuthContextProvider` + `useAuth()`: `status` (`loading|authenticated|anonymous`), `identity`, `can(cap)` (`canAny` üzerinden), `login` / `logout`. `providers.tsx` içinde `authedFetch` 401'de bir kez `refreshSession()` deneyip isteği tekrarlar.
+- **Rotalar:** `/giris` (telefon + OTP iki adım) · `(panel)/` grubu `AuthGate` + `AppShell` sarmalı → `/` (genel bakış: açık sipariş sayaçları + tutar) · `/siparisler` (durum çipli sonsuz liste) · `/siparisler/[key]` (detay + `nextSteps`'ten durum geçişi butonları + olay zaman çizelgesi) · `[section]` (yetki kontrollü "yakında" ekranı) · `not-found.tsx`.
+- Portlar: admin `:3000`, API `:3001` (`ADMIN_URL` CORS). `pnpm -C apps/admin run typecheck` temiz; `/giris`, `/`, `/siparisler`, `/katalog` derleniyor; canlı API ile `verifyOtp → auth.me → orders.list` uçtan uca doğrulandı (`producer_admin`, `RC-2026-000001..3`).
+
 ## Sıradaki iş
 
-- `apps/admin` (Next.js + Refine) kabuğu
+- Admin: gerçek tarayıcı ile giriş → pano → detay → durum geçişi tık-turu; sonra katalog / müşteri ekranları
 - Worker (pg-boss): `outbox` → bildirim

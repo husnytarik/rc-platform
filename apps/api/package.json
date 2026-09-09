@@ -2,6 +2,12 @@
   "name": "@rc/api",
   "version": "0.0.0",
   "private": true,
+  "exports": {
+    "./app-router": {
+      "types": "./dist/trpc/app-router.d.ts",
+      "default": "./dist/trpc/app-router.js"
+    }
+  },
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
