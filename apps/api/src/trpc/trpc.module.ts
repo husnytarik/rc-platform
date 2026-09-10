@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { MembershipModule } from '../membership/membership.module';
 import { OrderModule } from '../orders/order.module';
 import { TrpcService } from './trpc.service';
 
@@ -9,7 +10,7 @@ import { TrpcService } from './trpc.service';
  * `CatalogService`, OrderModule `OrderService` export eder.
  */
 @Module({
-  imports: [AuthModule, CatalogModule, OrderModule],
+  imports: [AuthModule, CatalogModule, MembershipModule, OrderModule],
   providers: [TrpcService],
   exports: [TrpcService],
 })

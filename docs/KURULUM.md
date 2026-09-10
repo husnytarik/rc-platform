@@ -84,7 +84,15 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 - **Rotalar:** `/giris` (telefon + OTP iki adım) · `(panel)/` grubu `AuthGate` + `AppShell` sarmalı → `/` (genel bakış: açık sipariş sayaçları + tutar) · `/siparisler` (durum çipli sonsuz liste) · `/siparisler/[key]` (detay + `nextSteps`'ten durum geçişi butonları + olay zaman çizelgesi) · `[section]` (yetki kontrollü "yakında" ekranı) · `not-found.tsx`.
 - Portlar: admin `:3000`, API `:3001` (`ADMIN_URL` CORS). `pnpm -C apps/admin run typecheck` temiz; `/giris`, `/`, `/siparisler`, `/katalog` derleniyor; canlı API ile `verifyOtp → auth.me → orders.list` uçtan uca doğrulandı (`producer_admin`, `RC-2026-000001..3`).
 
+## Üyelik başvurusu inceleme — bağlandı ✅
+
+- **Sorun:** kayıt (`auth.verifyOtp` + `register`) `MembershipRequest` satırı açıyordu ama onaylayan yoktu — tüm müşteri akışlarını kilitleyen giriş kapısı.
+- **API:** `apps/api/src/membership/` — `MembershipService` (`listRequests` imleç sayfalama · `getRequest` şube/adres detayı · `approve` · `reject`). Onay tek `$transaction`'da: `Organization` (benzersiz `slug`, `type: customer`) + şube(ler) (yoksa "Merkez Şube") + `Membership` (`status: active`) + `activityLog` + `outboxEvent` (`membership.approved`). Uzak Neon gecikmesi için transaction `timeout: 20s`. Ret: `status: rejected` + zorunlu `reviewNote` + `membership.rejected` olayı.
+- **tRPC:** `membership` router'ı — `requests` / `request` / `approve` / `reject`, hepsi `capabilityProcedure('membership.review')` (rol: `producer_admin`, `sales_staff`). `app-router` / `trpc.service` / `trpc.module`'e bağlandı.
+- **Admin:** `src/nav.ts` `basvurular` → `ready`. `(panel)/basvurular/` liste (durum çipli sonsuz liste) + `[id]` detay (firma/yetkili/şubeler + rol seçimli Onayla / notlu Reddet).
+- Canlı API ile uçtan uca doğrulandı: kayıt → `pending`, admin listeler → detay → `approve` Org+şube+üyelik açar, başvuran `auth.me` `customer_admin` üyeliğini görür; negatif yollar (tekrar onay "zaten sonuçlanmış", olmayan id "bulunamadı", yetkisiz "yetkiniz yok") doğru. `pnpm -C apps/api run build` + `pnpm -C apps/admin run typecheck` temiz.
+
 ## Sıradaki iş
 
-- Admin: gerçek tarayıcı ile giriş → pano → detay → durum geçişi tık-turu; sonra katalog / müşteri ekranları
-- Worker (pg-boss): `outbox` → bildirim
+- Admin: katalog / müşteri yönetimi ekranları
+- Worker (pg-boss): `outbox` → bildirim (`membership.approved` → başvurana "hesabın onaylandı")

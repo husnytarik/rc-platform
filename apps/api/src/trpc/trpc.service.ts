@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
 import { CatalogService } from '../catalog/catalog.service';
+import { MembershipService } from '../membership/membership.service';
 import { OrderService } from '../orders/order.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { makeAppRouter, type AppRouter } from './app-router';
@@ -21,9 +22,10 @@ export class TrpcService {
     tokens: TokenService,
     prisma: PrismaService,
     catalog: CatalogService,
+    membership: MembershipService,
     orders: OrderService,
   ) {
-    this.appRouter = makeAppRouter({ auth, catalog, orders });
+    this.appRouter = makeAppRouter({ auth, catalog, membership, orders });
     this.createContext = makeCreateContext({ tokens, prisma });
   }
 }

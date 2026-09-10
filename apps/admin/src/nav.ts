@@ -28,7 +28,7 @@ export const NAV: NavItem[] = [
     label: 'Başvurular',
     href: '/basvurular',
     cap: 'membership.review',
-    planned: 'Üyelik başvurularını onaylama / reddetme, rol atama.',
+    ready: true,
   },
   {
     key: 'katalog',
