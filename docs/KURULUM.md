@@ -92,7 +92,14 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 - **Admin:** `src/nav.ts` `basvurular` → `ready`. `(panel)/basvurular/` liste (durum çipli sonsuz liste) + `[id]` detay (firma/yetkili/şubeler + rol seçimli Onayla / notlu Reddet).
 - Canlı API ile uçtan uca doğrulandı: kayıt → `pending`, admin listeler → detay → `approve` Org+şube+üyelik açar, başvuran `auth.me` `customer_admin` üyeliğini görür; negatif yollar (tekrar onay "zaten sonuçlanmış", olmayan id "bulunamadı", yetkisiz "yetkiniz yok") doğru. `pnpm -C apps/api run build` + `pnpm -C apps/admin run typecheck` temiz.
 
+## Müşteri yönetimi (`musteriler`) — bağlandı ✅
+
+- **API:** `apps/api/src/customer/customer.service.ts` — `list` (arama + aktif/pasif filtre, imleç sayfalama) · `get` (şubeler + kullanıcılar + son 10 sipariş) · `setActive` (`$transaction`: org güncelle + `activityLog` + `outboxEvent`, timeout 15s).
+- **Kapsam düzeltmesi (önemli):** `customer.manage` yetkisi hem üretici personeline (tüm firmalar) hem `customer_admin`'e (RBAC yorumu: "yalnızca kendi firması — sunucu kapsamı zorlar") verilir. İlk sürümde servis bunu zorlamıyordu — herhangi bir `customer_admin` tüm firmaları listeleyip pasife alabiliyordu. Düzeltildi: üretici olmayan çağıran `list`'te yalnız kendi org'unu görür, `get`'te başka org'a `NOT_FOUND` (varlığı bile sızdırmaz), `setActive` yalnızca üretici personeline açık. Canlı API ile üç senaryo da doğrulandı (seed `customer_admin` başka firmayı göremiyor/değiştiremiyor).
+- **tRPC:** `customer` router'ı — `list` / `get` / `setActive`, `capabilityProcedure('customer.manage')`; `app-router` / `trpc.service` / `trpc.module`'e bağlandı.
+- **Admin:** nav `musteriler` → ready. `(panel)/musteriler` liste (durum çipi + arama) + `[id]` detay (firma bilgisi, şubeler, kullanıcılar, son siparişler, Aktifleştir/Pasife al).
+
 ## Sıradaki iş
 
-- Admin: katalog / müşteri yönetimi ekranları
+- Admin: katalog / fiyat yönetimi ekranları
 - Worker (pg-boss): `outbox` → bildirim (`membership.approved` → başvurana "hesabın onaylandı")

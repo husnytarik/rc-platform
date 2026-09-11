@@ -56,7 +56,7 @@ export const NAV: NavItem[] = [
     label: 'Müşteriler',
     href: '/musteriler',
     cap: 'customer.manage',
-    planned: 'Firma + şube + kullanıcı yönetimi, müşteri grupları.',
+    ready: true,
   },
   {
     key: 'destek',
