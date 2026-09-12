@@ -59,7 +59,8 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  const port = Number(process.env.API_PORT ?? 3001);
+  // Render/Railway gibi PaaS'ler portu `PORT` ile enjekte eder — yerelde `API_PORT` kullanılır.
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
   await app.listen({ port, host: '0.0.0.0' });
   new Logger('bootstrap').log(`API hazır: http://localhost:${port}`);
 }

@@ -1,0 +1,44 @@
+# Render Blueprint — API'yi Neon'a bağlı tek web servisi olarak dağıtır.
+# Kullanım: Render Dashboard → New → Blueprint → bu repoyu seç.
+# `sync: false` olan değişkenleri Render panelinden elle gir (buraya sır yazılmaz).
+services:
+  - type: web
+    name: rc-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @rc/api run prisma:generate && pnpm --filter @rc/api run build
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL_DAYS
+        value: "75"
+      - key: OTP_TTL_SECONDS
+        value: "300"
+      - key: OTP_MAX_ATTEMPTS
+        value: "3"
+      - key: OTP_RESEND_COOLDOWN_SECONDS
+        value: "60"
+      - key: OTP_RATE_LIMIT_PER_HOUR
+        value: "5"
+      # Gerçek SMS sağlayıcısı seçilene kadar geçici: kod SMS yerine loglara yazılır.
+      # Render → Logs'tan "[DEV] OTP ... =>" satırını okuyup uygulamaya elle gir.
+      - key: OTP_DEV_ECHO
+        value: "true"
+      - key: ADMIN_URL
+        sync: false
