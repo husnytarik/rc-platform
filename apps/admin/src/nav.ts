@@ -35,7 +35,7 @@ export const NAV: NavItem[] = [
     label: 'Katalog',
     href: '/katalog',
     cap: 'catalog.view',
-    planned: 'Ürün + varyant + kategori yönetimi, görünürlük kuralları.',
+    ready: true,
   },
   {
     key: 'fiyatlar',

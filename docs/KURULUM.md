@@ -99,7 +99,14 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 - **tRPC:** `customer` router'ı — `list` / `get` / `setActive`, `capabilityProcedure('customer.manage')`; `app-router` / `trpc.service` / `trpc.module`'e bağlandı.
 - **Admin:** nav `musteriler` → ready. `(panel)/musteriler` liste (durum çipi + arama) + `[id]` detay (firma bilgisi, şubeler, kullanıcılar, son siparişler, Aktifleştir/Pasife al).
 
+## Katalog görüntüleme (`katalog`) — bağlandı ✅ (salt-okunur)
+
+- **Kapsam:** yalnızca listeleme/detay. Ürün/varyant/kategori/fiyat listesi **CRUD henüz yok** — mevcut `catalog.router.ts` sadece `categories` / `list` / `product` okuma uçlarını sunuyor. `nav.ts`'deki eski "planned" metni (tam yönetim) bu yüzden hedefi aşıyordu; ekran o kapsamla değil, mevcut okuma uçlarıyla sınırlı yapıldı.
+- **Güvenlik kontrolü:** `CatalogService.viewContext()` görünümü (`producerView`/`orgId`/`groupIds`) `ctx.user`'dan sunucuda türetiyor, istemci gönderemiyor — `musteriler`'daki gibi ayrıca bir kapsam düzeltmesi gerekmedi, ama yine de canlı API'de doğrulandı: üretici (`+905000000000`) gerçek stok bakiyesini (`available: 40`) görüyor, seed `customer_admin` (`+905321112233`) aynı üründe `available: null` alıyor (yalnız rozet), arama/eksik-id/oturumsuz istek beklenen `NOT_FOUND`/`UNAUTHORIZED` hatalarını veriyor.
+- **Admin:** nav `katalog` → ready. `(panel)/katalog` liste (kategori çipleri + arama, ürün/marka/kategori/varyant sayısı/fiyat aralığı/stok rozeti) + `[id]` detay (ürün bilgisi + varyant tablosu: birim, min. sipariş, adım, fiyat, fiyat kaynağı, stok rozeti, bakiye — bakiye yalnız üretici görünümünde dolu).
+- Stok rozeti etiket/renk eşlemesi (`STOCK_META`) şimdilik sayfa içinde inline — `@rc/shared`'da henüz paylaşılan bir karşılığı yok (`status-badge.tsx`'teki sipariş durumu deseninin aynısı).
+
 ## Sıradaki iş
 
-- Admin: katalog / fiyat yönetimi ekranları
+- Admin: fiyat listesi yönetimi / ürün-varyant CRUD ekranları
 - Worker (pg-boss): `outbox` → bildirim (`membership.approved` → başvurana "hesabın onaylandı")
