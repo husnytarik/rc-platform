@@ -23,7 +23,7 @@ const t = initTRPC.context<TrpcContext>().create({
 export const router = t.router;
 export const middleware = t.middleware;
 
-/** Oturum gerektirmez (OTP iste/doğrula, refresh). */
+/** Oturum gerektirmez (oauthLogin, refresh). */
 export const publicProcedure = t.procedure;
 
 const requireAuth = t.middleware(({ ctx, next }) => {

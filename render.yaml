@@ -28,17 +28,11 @@ services:
         value: 15m
       - key: JWT_REFRESH_TTL_DAYS
         value: "75"
-      - key: OTP_TTL_SECONDS
-        value: "300"
-      - key: OTP_MAX_ATTEMPTS
-        value: "3"
-      - key: OTP_RESEND_COOLDOWN_SECONDS
-        value: "60"
-      - key: OTP_RATE_LIMIT_PER_HOUR
-        value: "5"
-      # Gerçek SMS sağlayıcısı seçilene kadar geçici: kod SMS yerine loglara yazılır.
-      # Render → Logs'tan "[DEV] OTP ... =>" satırını okuyup uygulamaya elle gir.
-      - key: OTP_DEV_ECHO
-        value: "true"
+      - key: GOOGLE_MOBILE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_ADMIN_CLIENT_ID
+        sync: false
+      - key: APPLE_BUNDLE_ID
+        value: com.husnytarik.roasteryclub
       - key: ADMIN_URL
         sync: false

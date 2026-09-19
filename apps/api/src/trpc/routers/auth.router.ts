@@ -1,22 +1,19 @@
 import type { AuthService } from '../../auth/auth.service';
-import { refreshSchema, requestOtpSchema, verifyOtpSchema } from '../../auth/auth.schemas';
+import { membershipRequestSchema, oauthLoginSchema, refreshSchema } from '../../auth/auth.schemas';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 
-/**
- * Kimlik uçları. REST `AuthController` ile aynı zod sözleşmesini paylaşır
- * (`auth.schemas.ts`) — REST yüzeyi istemciler tRPC'ye geçince kaldırılacak.
- */
 export function makeAuthRouter(auth: AuthService) {
   return router({
-    requestOtp: publicProcedure
-      .input(requestOtpSchema)
-      .mutation(({ input, ctx }) => auth.requestOtp(input.phone, input.purpose, ctx.reqInfo)),
-
-    verifyOtp: publicProcedure
-      .input(verifyOtpSchema)
+    oauthLogin: publicProcedure
+      .input(oauthLoginSchema)
       .mutation(({ input, ctx }) =>
-        auth.verifyOtp(input.phone, input.code, ctx.reqInfo, input.register),
+        auth.oauthLogin(input.provider, input.idToken, ctx.reqInfo, input.fullName),
       ),
+
+    /** Google/Apple ile ilk giriş sonrası, üyeliği bekleyen kullanıcının kayıt formu. */
+    submitMembershipRequest: protectedProcedure
+      .input(membershipRequestSchema)
+      .mutation(({ input, ctx }) => auth.submitMembershipRequest(ctx.user.id, input, ctx.reqInfo)),
 
     refresh: publicProcedure
       .input(refreshSchema)
@@ -28,12 +25,16 @@ export function makeAuthRouter(auth: AuthService) {
     }),
 
     /** Oturum sahibinin kendi profili + rolleri (istemci açılışta çağırır). */
-    me: protectedProcedure.query(({ ctx }) => ({
+    me: protectedProcedure.query(async ({ ctx }) => ({
       id: ctx.user.id,
       phone: ctx.user.phone,
       fullName: ctx.user.fullName,
       memberships: ctx.user.memberships,
       roles: ctx.user.roles,
+      hasPendingRequest:
+        ctx.user.memberships.length === 0
+          ? await auth.hasPendingMembershipRequest(ctx.user.id)
+          : false,
     })),
   });
 }

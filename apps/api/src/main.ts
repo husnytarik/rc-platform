@@ -33,7 +33,6 @@ async function bootstrap(): Promise<void> {
   await app.register(rateLimit, {
     max: 120,
     timeWindow: '1 minute',
-    // OTP uçları servis içinde ayrıca sınırlanıyor
   });
 
   app.enableCors({

@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { toE164TR } from '@rc/shared';
-import type { OtpPurpose } from '@prisma/client';
+import type { AuthProvider } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { OtpService } from './otp.service';
+import { OauthService } from './oauth.service';
 import { TokenService } from './token.service';
 
 interface Ctx {
@@ -11,8 +11,8 @@ interface Ctx {
   deviceId?: string;
 }
 
-export interface RegisterInfo {
-  fullName: string;
+export interface MembershipRequestInfo {
+  phone: string;
   orgName: string;
   taxId?: string;
   address?: string;
@@ -26,77 +26,39 @@ export interface SessionResult {
   refreshExpiresAt: string;
   /** active = tam erişim; pending = başvuru onay bekliyor (kısıtlı ekran) */
   state: 'active' | 'pending';
-  user: { id: string; phone: string; fullName: string | null };
+  user: { id: string; phone: string | null; fullName: string | null };
 }
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly otp: OtpService,
+    private readonly oauth: OauthService,
     private readonly tokens: TokenService,
   ) {}
 
-  private normPhone(input: string): string {
-    const e164 = toE164TR(input);
-    if (!e164) throw new BadRequestException('Geçerli bir Türkiye cep telefonu girin.');
-    return e164;
-  }
-
-  async requestOtp(rawPhone: string, purpose: OtpPurpose, ctx: Ctx) {
-    const phone = this.normPhone(rawPhone);
-    return this.otp.request(phone, purpose, ctx);
-  }
-
-  async verifyOtp(
-    rawPhone: string,
-    code: string,
+  async oauthLogin(
+    provider: AuthProvider,
+    idToken: string,
     ctx: Ctx,
-    register?: RegisterInfo,
+    fullName?: string,
   ): Promise<SessionResult> {
-    const phone = this.normPhone(rawPhone);
-    await this.otp.verify(phone, code);
+    const profile = await this.oauth.verify(provider, idToken);
 
     let user = await this.prisma.user.findUnique({
-      where: { phone },
+      where: { provider_providerUserId: { provider, providerUserId: profile.providerUserId } },
       include: { memberships: { where: { status: 'active' } } },
     });
 
     if (!user) {
-      if (!register) {
-        // Kayıt bilgisi olmadan yeni numara — istemci kayıt formunu göstermeli
-        throw new BadRequestException('KAYIT_GEREKLI');
-      }
-      user = await this.prisma.$transaction(async (tx) => {
-        const u = await tx.user.create({
-          data: { phone, fullName: register.fullName },
-          include: { memberships: true },
-        });
-        await tx.membershipRequest.create({
-          data: {
-            userId: u.id,
-            phone,
-            requestedOrgName: register.orgName,
-            requestedRole: 'customer_admin',
-            note: register.note,
-            payload: {
-              taxId: register.taxId,
-              address: register.address,
-              branches: register.branches ?? [],
-            },
-          },
-        });
-        await tx.activityLog.create({
-          data: {
-            actorId: u.id,
-            action: 'membership_request.create',
-            entityType: 'membership_request',
-            after: { orgName: register.orgName },
-            ip: ctx.ip,
-            userAgent: ctx.userAgent,
-          },
-        });
-        return u;
+      user = await this.prisma.user.create({
+        data: {
+          provider,
+          providerUserId: profile.providerUserId,
+          email: profile.email,
+          fullName: fullName ?? profile.fullName,
+        },
+        include: { memberships: true },
       });
     }
 
@@ -112,6 +74,60 @@ export class AuthService {
       state,
       user: { id: user.id, phone: user.phone, fullName: user.fullName },
     };
+  }
+
+  /** Google/Apple ile ilk girişten sonra, üyelik bekleyen kullanıcının doldurduğu kayıt formu. */
+  async submitMembershipRequest(
+    userId: string,
+    register: MembershipRequestInfo,
+    ctx: Ctx,
+  ): Promise<{ ok: true }> {
+    const e164 = toE164TR(register.phone);
+    if (!e164) throw new BadRequestException('Geçerli bir Türkiye cep telefonu girin.');
+
+    const existing = await this.prisma.membershipRequest.findFirst({
+      where: { userId, status: 'pending' },
+    });
+    if (existing) throw new BadRequestException('Zaten bekleyen bir başvurunuz var.');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { phone: e164 } });
+      await tx.membershipRequest.create({
+        data: {
+          userId,
+          phone: e164,
+          requestedOrgName: register.orgName,
+          requestedRole: 'customer_admin',
+          note: register.note,
+          payload: {
+            taxId: register.taxId,
+            address: register.address,
+            branches: register.branches ?? [],
+          },
+        },
+      });
+      await tx.activityLog.create({
+        data: {
+          actorId: userId,
+          action: 'membership_request.create',
+          entityType: 'membership_request',
+          after: { orgName: register.orgName },
+          ip: ctx.ip,
+          userAgent: ctx.userAgent,
+        },
+      });
+    });
+
+    return { ok: true };
+  }
+
+  /** Onay bekleyen kullanıcı için: kayıt formu zaten dolduruldu mu? */
+  async hasPendingMembershipRequest(userId: string): Promise<boolean> {
+    const req = await this.prisma.membershipRequest.findFirst({
+      where: { userId, status: 'pending' },
+      select: { id: true },
+    });
+    return req !== null;
   }
 
   async refresh(rawRefresh: string, ctx: Ctx) {

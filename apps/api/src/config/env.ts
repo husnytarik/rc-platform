@@ -18,18 +18,9 @@ const schema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(75),
 
-  OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
-  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
-  OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(60),
-  OTP_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(5),
-  OTP_DEV_ECHO: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((v) => v === 'true'),
-
-  NETGSM_USERCODE: z.string().optional(),
-  NETGSM_PASSWORD: z.string().optional(),
-  NETGSM_SENDER: z.string().optional(),
+  GOOGLE_MOBILE_CLIENT_ID: z.string().min(1),
+  GOOGLE_ADMIN_CLIENT_ID: z.string().min(1),
+  APPLE_BUNDLE_ID: z.string().min(1),
 
   SENTRY_DSN: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),

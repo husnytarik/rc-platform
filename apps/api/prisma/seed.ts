@@ -271,6 +271,8 @@ async function setPrice(
 }
 
 async function main() {
+  // Tohumda gerçek OAuth girişi yok — yer tutucu kimlik; admin ilk girişte
+  // gerçek Google/Apple hesabıyla eşleşecek şekilde elle güncellenebilir.
   const adminPhone = process.env.SEED_ADMIN_PHONE ?? '+905000000000';
 
   const producer = await prisma.organization.upsert({
@@ -280,9 +282,14 @@ async function main() {
   });
 
   const admin = await prisma.user.upsert({
-    where: { phone: adminPhone },
+    where: { provider_providerUserId: { provider: 'google', providerUserId: 'seed-admin' } },
     update: {},
-    create: { phone: adminPhone, fullName: 'Sistem Yöneticisi' },
+    create: {
+      provider: 'google',
+      providerUserId: 'seed-admin',
+      phone: adminPhone,
+      fullName: 'Sistem Yöneticisi',
+    },
   });
   await prisma.membership.upsert({
     where: { userId_orgId_role: { userId: admin.id, orgId: producer.id, role: 'producer_admin' } },
@@ -397,9 +404,14 @@ async function main() {
       data: { orgId: customer.id, name: 'Merkez Şube', address: 'Kadıköy, İstanbul' },
     }));
   const customerUser = await prisma.user.upsert({
-    where: { phone: customerPhone },
+    where: { provider_providerUserId: { provider: 'google', providerUserId: 'seed-customer' } },
     update: {},
-    create: { phone: customerPhone, fullName: 'Kadıköy Kahve Evi — Yetkili' },
+    create: {
+      provider: 'google',
+      providerUserId: 'seed-customer',
+      phone: customerPhone,
+      fullName: 'Kadıköy Kahve Evi — Yetkili',
+    },
   });
   await prisma.membership.upsert({
     where: {

@@ -23,6 +23,11 @@ enum OrgType {
   customer
 }
 
+enum AuthProvider {
+  google
+  apple
+}
+
 enum Role {
   producer_admin
   sales_staff
@@ -161,19 +166,6 @@ enum DevicePlatform {
   web
 }
 
-enum OtpPurpose {
-  login
-  register
-  add_device
-}
-
-enum OtpStatus {
-  pending
-  verified
-  expired
-  failed
-}
-
 enum ImportJobType {
   products
   prices
@@ -240,22 +232,24 @@ model Branch {
 }
 
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  phone         String   @unique // E.164, +90XXXXXXXXXX — birincil kimlik
-  fullName      String?
-  email         String?
-  isActive      Boolean  @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String       @id @default(uuid()) @db.Uuid
+  provider       AuthProvider // Google/Apple — giriş kimliği
+  providerUserId String       // OAuth sağlayıcının `sub` değeri
+  phone          String?      @unique // E.164 — kayıt formunda toplanır, admin telefonla doğrular
+  fullName       String?
+  email          String?
+  isActive       Boolean      @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   memberships        Membership[]
   membershipRequests MembershipRequest[]
   refreshTokens      RefreshToken[]
   deviceTokens       DeviceToken[]
-  otpChallenges      OtpChallenge[]
   notifications      Notification[]
 
+  @@unique([provider, providerUserId])
   @@map("users")
 }
 
@@ -303,29 +297,7 @@ model MembershipRequest {
   @@map("membership_requests")
 }
 
-// ── Oturum & OTP ─────────────────────────────────────────────────────────────
-
-model OtpChallenge {
-  id          String     @id @default(uuid()) @db.Uuid
-  phone       String     // E.164
-  userId      String?    @db.Uuid // kayıtlı kullanıcıysa
-  purpose     OtpPurpose
-  codeHash    String     // argon2(code) — düz kod asla saklanmaz
-  status      OtpStatus  @default(pending)
-  attempts    Int        @default(0)
-  maxAttempts Int        @default(3)
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  requestIp   String?
-  userAgent   String?
-  createdAt   DateTime   @default(now())
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([phone, createdAt])
-  @@index([status])
-  @@map("otp_challenges")
-}
+// ── Oturum ───────────────────────────────────────────────────────────────────
 
 model RefreshToken {
   id         String    @id @default(uuid()) @db.Uuid

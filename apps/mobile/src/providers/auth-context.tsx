@@ -57,6 +57,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }): Reac
       roles: meQuery.data.roles as Role[],
       memberships: meQuery.data.memberships as Identity['memberships'],
       pending: meQuery.data.memberships.length === 0,
+      hasPendingRequest: meQuery.data.hasPendingRequest,
     };
     identityCache.set(value);
     return value;

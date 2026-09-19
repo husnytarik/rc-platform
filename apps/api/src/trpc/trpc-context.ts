@@ -11,7 +11,7 @@ export interface AuthedMembership {
 
 export interface AuthedUser {
   id: string;
-  phone: string;
+  phone: string | null;
   fullName: string | null;
   /** Yalnızca aktif üyelikler. Boşsa hesap onay bekliyor. */
   memberships: AuthedMembership[];
