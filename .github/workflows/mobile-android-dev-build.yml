@@ -1,0 +1,67 @@
+name: Mobil Android development build
+
+# Sadece elle tetiklenir — EAS bulut build hakkı tükendiği için gerçek build
+# GitHub Actions runner'ının kendisinde ("eas build --local") çalışıyor.
+# Otomatik push tetikleyicisi YOK: her push'ta boşuna Actions dakikası
+# harcamamak için (bkz. GitHub hesap ayarlarında harcama limiti).
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Java kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: pnpm etkinleştir
+        run: corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+      - name: Bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: '@rc/shared paketini derle'
+        run: pnpm --filter @rc/shared run build
+
+      - name: Mobil .env dosyasını oluştur
+        working-directory: apps/mobile
+        run: |
+          cat <<EOF > .env
+          EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_IOS_URL_SCHEME=${{ secrets.GOOGLE_IOS_URL_SCHEME }}
+          EOF
+
+      - name: eas-cli kur
+        run: npm install -g eas-cli
+
+      - name: EAS oturumunu doğrula
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas whoami
+
+      - name: Android development client'ı yerel olarak derle
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --local --platform android --profile development --non-interactive --output ./rc-mobile-dev.apk
+
+      - name: APK'yı Actions'a yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-mobile-dev-apk
+          path: apps/mobile/rc-mobile-dev.apk
+          retention-days: 14
