@@ -8,7 +8,7 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @rc/api run prisma:generate && pnpm --filter @rc/api run build
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile --prod=false && pnpm --filter @rc/api run prisma:generate && pnpm --filter @rc/api run build
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /health
     envVars:
