@@ -1,0 +1,59 @@
+name: Mobil iOS build
+
+# Elle tetiklenir. macOS runner'lar Linux'un 10 katı dakika sayıldığı için
+# otomatik push tetikleyicisi bilerek yok.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: pnpm etkinleştir
+        run: corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+      - name: Bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: '@rc/shared paketini derle'
+        run: pnpm --filter @rc/shared run build
+
+      - name: Mobil .env dosyasını oluştur
+        working-directory: apps/mobile
+        run: |
+          cat <<EOF > .env
+          EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_IOS_URL_SCHEME=${{ secrets.GOOGLE_IOS_URL_SCHEME }}
+          EOF
+
+      - name: eas-cli kur
+        run: npm install -g eas-cli
+
+      - name: EAS oturumunu doğrula
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas whoami
+
+      - name: iOS build'i yerel olarak derle
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --local --platform ios --profile production --non-interactive --output ./rc-mobile.ipa
+
+      - name: IPA'yı Actions'a yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-mobile-ipa
+          path: apps/mobile/rc-mobile.ipa
+          retention-days: 14
