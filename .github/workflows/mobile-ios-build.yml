@@ -57,3 +57,19 @@ jobs:
           name: rc-mobile-ipa
           path: apps/mobile/rc-mobile.ipa
           retention-days: 14
+
+      - name: App Store Connect API key dosyasını oluştur
+        working-directory: apps/mobile
+        run: |
+          cat <<'EOF' > AuthKey.p8
+          ${{ secrets.ASC_API_KEY_P8 }}
+          EOF
+
+      - name: TestFlight'a gönder
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_ASC_API_KEY_PATH: ./AuthKey.p8
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+        run: eas submit --platform ios --non-interactive --path ./rc-mobile.ipa --wait
