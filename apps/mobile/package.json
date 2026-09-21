@@ -30,6 +30,7 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "superjson": "^2.2.2",
+    "whatwg-fetch": "^3.6.20",
     "zod": "^3.24.1"
   },
   "devDependencies": {

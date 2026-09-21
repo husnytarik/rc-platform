@@ -217,6 +217,9 @@ importers:
       superjson:
         specifier: ^2.2.2
         version: 2.2.6
+      whatwg-fetch:
+        specifier: ^3.6.20
+        version: 3.6.20
       zod:
         specifier: ^3.24.1
         version: 3.25.76
