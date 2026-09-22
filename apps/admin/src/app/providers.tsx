@@ -1,5 +1,6 @@
 'use client';
 
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { useState, type ReactNode } from 'react';
@@ -40,7 +41,9 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <AuthContextProvider>{children}</AuthContextProvider>
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_ADMIN_CLIENT_ID ?? ''}>
+          <AuthContextProvider>{children}</AuthContextProvider>
+        </GoogleOAuthProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

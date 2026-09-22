@@ -33,6 +33,6 @@ services:
       - key: GOOGLE_ADMIN_CLIENT_ID
         sync: false
       - key: APPLE_BUNDLE_ID
-        value: com.husnytarik.roasteryclub
+        value: com.roasteryclub.app
       - key: ADMIN_URL
         sync: false

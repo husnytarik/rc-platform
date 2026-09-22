@@ -2,7 +2,7 @@ import type { Role } from '@rc/shared';
 
 export interface Identity {
   id: string;
-  phone: string;
+  phone: string | null;
   fullName: string | null;
   roles: Role[];
   memberships: { orgId: string; role: Role; branchScope: unknown }[];
