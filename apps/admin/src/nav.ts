@@ -49,7 +49,7 @@ export const NAV: NavItem[] = [
     label: 'Stok',
     href: '/stok',
     cap: 'catalog.view',
-    planned: 'Stok defteri hareketleri, gösterim override, düşük stok uyarıları.',
+    ready: true,
   },
   {
     key: 'musteriler',

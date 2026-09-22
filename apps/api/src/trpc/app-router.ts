@@ -1,5 +1,6 @@
 import type { AuthService } from '../auth/auth.service';
 import type { CatalogService } from '../catalog/catalog.service';
+import type { StockService } from '../catalog/stock.service';
 import type { CustomerService } from '../customer/customer.service';
 import type { MembershipService } from '../membership/membership.service';
 import type { OrderService } from '../orders/order.service';
@@ -8,6 +9,7 @@ import { makeCatalogRouter } from './routers/catalog.router';
 import { makeCustomerRouter } from './routers/customer.router';
 import { makeMembershipRouter } from './routers/membership.router';
 import { makeOrderRouter } from './routers/order.router';
+import { makeStockRouter } from './routers/stock.router';
 import { router } from './trpc';
 
 interface RouterDeps {
@@ -16,6 +18,7 @@ interface RouterDeps {
   customer: CustomerService;
   membership: MembershipService;
   orders: OrderService;
+  stock: StockService;
 }
 
 /**
@@ -29,6 +32,7 @@ export function makeAppRouter(deps: RouterDeps) {
     customer: makeCustomerRouter(deps.customer),
     membership: makeMembershipRouter(deps.membership),
     orders: makeOrderRouter(deps.orders),
+    stock: makeStockRouter(deps.stock),
   });
 }
 
