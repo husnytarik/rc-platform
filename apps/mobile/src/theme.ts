@@ -1,16 +1,22 @@
-/** Uygulama genelinde paylaşılan renk/aralık sabitleri — kahve/rosterie kimliği. */
+import { BRAND, NEUTRAL, SEMANTIC } from '@rc/shared';
+
+/**
+ * Uygulama genelinde paylaşılan renk/aralık sabitleri — @rc/shared'daki marka
+ * paletinden türetilir (tek gerçek kaynak), apps/admin ile aynı marka yeşili.
+ * Yerleşim/bileşen dili (kart, sekme, yarıçap) mobile'a özgü kalır.
+ */
 export const colors = {
-  bg: '#FBF6F0',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F5EBE0',
-  border: '#EAE0D3',
-  ink: '#241811',
-  inkMuted: '#8A7A6C',
-  inkFaint: '#B3A697',
-  accent: '#C2410C',
-  accentSoft: '#F6E4D6',
-  danger: '#B91C1C',
-  dangerSoft: '#FBEAE8',
+  bg: NEUTRAL[50],
+  surface: NEUTRAL[0],
+  surfaceMuted: NEUTRAL[100],
+  border: NEUTRAL[200],
+  ink: NEUTRAL[900],
+  inkMuted: NEUTRAL[500],
+  inkFaint: NEUTRAL[400],
+  accent: BRAND[500],
+  accentSoft: BRAND[50],
+  danger: SEMANTIC.danger,
+  dangerSoft: '#F8E9E9',
 } as const;
 
 export const radius = { sm: 10, md: 14, lg: 20, pill: 999 } as const;
