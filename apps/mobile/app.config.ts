@@ -3,9 +3,9 @@ import type { ExpoConfig } from 'expo/config';
 /**
  * RoasteryClub mobil — tek uygulama, tüm roller (müşteri/admin/personel),
  * Google/Apple ile giriş (telefon numarası kayıt formunda toplanır, admin
- * telefonla doğrular). Aynı Apple/EAS kimliği (bundle id, projectId) eski
- * Firebase tabanlı uygulamayla paylaşılır — bu onun yeniden yazımı, App Store
- * Connect'teki kayıt aynı kalır.
+ * telefonla doğrular). Bundle id, App Store Connect'teki yayınlı "RoasteryClub"
+ * kaydıyla (Apple ID 6752270952) eşleşecek şekilde ayarlandı — bu build oraya
+ * güncelleme olarak gidiyor, yeni bir uygulama kaydı değil.
  *
  * GOOGLE_IOS_URL_SCHEME: Google Cloud Console'daki iOS OAuth client'ının
  * "reversed client ID"si (örn. com.googleusercontent.apps.XXXX) — .env'e
@@ -38,7 +38,7 @@ const config: ExpoConfig = {
   },
 
   ios: {
-    bundleIdentifier: 'com.husnytarik.roasteryclub',
+    bundleIdentifier: 'com.roasteryclub.app',
     supportsTablet: true,
     buildNumber: '1',
     usesAppleSignIn: true,
@@ -48,7 +48,7 @@ const config: ExpoConfig = {
   },
 
   android: {
-    package: 'com.husnytarik.roasteryclub',
+    package: 'com.roasteryclub.app',
     versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
@@ -73,7 +73,6 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
 
   extra: {
-    // Eski uygulamayla aynı EAS projesi — TestFlight kaydı bu yüzden değişmiyor.
     eas: { projectId: '713b0b59-4130-4d31-9674-52eb86e2a04f' },
   },
 };
