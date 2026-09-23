@@ -1,4 +1,5 @@
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Link } from 'expo-router';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -62,18 +63,20 @@ export default function StokScreen() {
         const badge = STOCK_META[worstBadge(item.variants)];
         const total = totalBalance(item.variants);
         return (
-          <View style={styles.card}>
-            <View style={styles.cardTop}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <View style={[styles.badge, { borderColor: badge.color }]}>
-                <View style={[styles.badgeDot, { backgroundColor: badge.color }]} />
-                <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+          <Link href={{ pathname: '/producer/stok/[id]', params: { id: item.id } }} asChild>
+            <TouchableOpacity style={styles.card}>
+              <View style={styles.cardTop}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <View style={[styles.badge, { borderColor: badge.color }]}>
+                  <View style={[styles.badgeDot, { backgroundColor: badge.color }]} />
+                  <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.cardMeta}>
-              {item.variants.length} varyant · toplam bakiye {total ?? '—'}
-            </Text>
-          </View>
+              <Text style={styles.cardMeta}>
+                {item.variants.length} varyant · toplam bakiye {total ?? '—'}
+              </Text>
+            </TouchableOpacity>
+          </Link>
         );
       }}
     />
