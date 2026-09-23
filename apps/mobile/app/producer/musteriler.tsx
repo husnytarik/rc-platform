@@ -1,14 +1,24 @@
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
 export default function MusterilerScreen() {
+  const utils = trpc.useUtils();
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     trpc.customer.list.useInfiniteQuery(
       { limit: 30 },
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     );
   const items = data?.pages.flatMap((p) => p.items) ?? [];
+
+  const setActive = trpc.customer.setActive.useMutation({
+    onSettled: () => {
+      setPendingId(null);
+      void utils.customer.list.invalidate();
+    },
+  });
 
   return (
     <FlatList
@@ -45,6 +55,27 @@ export default function MusterilerScreen() {
           <Text style={styles.cardMeta}>
             {item.branchCount} şube · {item.memberCount} kullanıcı · {item.orderCount} sipariş
           </Text>
+          <TouchableOpacity
+            style={[styles.toggleButton, item.isActive ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
+            disabled={pendingId === item.id}
+            onPress={() => {
+              setPendingId(item.id);
+              setActive.mutate({ id: item.id, isActive: !item.isActive });
+            }}
+          >
+            {pendingId === item.id ? (
+              <ActivityIndicator size="small" color={item.isActive ? colors.danger : colors.accent} />
+            ) : (
+              <Text
+                style={[
+                  styles.toggleButtonText,
+                  { color: item.isActive ? colors.danger : colors.accent },
+                ]}
+              >
+                {item.isActive ? 'Pasife al' : 'Aktif et'}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       )}
     />
@@ -68,4 +99,15 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 12, color: colors.inkMuted },
   inactiveBadge: { backgroundColor: colors.dangerSoft, borderRadius: radius.pill, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1) },
   inactiveBadgeText: { color: colors.danger, fontSize: 11, fontWeight: '700' },
+  toggleButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(1.5),
+    marginTop: spacing(1),
+  },
+  toggleButtonActivate: { borderColor: colors.accent },
+  toggleButtonDeactivate: { borderColor: colors.danger },
+  toggleButtonText: { fontSize: 12, fontWeight: '700' },
 });
