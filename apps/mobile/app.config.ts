@@ -61,7 +61,11 @@ const config: ExpoConfig = {
     favicon: './assets/favicon.png',
   },
 
-  updates: { enabled: true },
+  updates: {
+    enabled: true,
+    url: 'https://u.expo.dev/713b0b59-4130-4d31-9674-52eb86e2a04f',
+    fallbackToCacheTimeout: 0,
+  },
   runtimeVersion: { policy: 'sdkVersion' },
 
   plugins: [
