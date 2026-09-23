@@ -1,6 +1,7 @@
 import { ROLE_LABELS_TR, type Role } from '@rc/shared';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '@/providers/auth-context';
+import { useCart } from '@/providers/cart-context';
 import { colors, radius, spacing } from '@/theme';
 
 function displayName(identity: { fullName: string | null; phone: string | null }): string {
@@ -9,7 +10,13 @@ function displayName(identity: { fullName: string | null; phone: string | null }
 
 export function AccountScreen() {
   const { identity, logout } = useAuth();
+  const cart = useCart();
   if (!identity) return null;
+
+  const onLogout = (): void => {
+    cart.clear();
+    logout();
+  };
 
   const roleLabels = identity.roles.map((r) => ROLE_LABELS_TR[r as Role]).join(', ');
 
@@ -26,7 +33,7 @@ export function AccountScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
         <Text style={styles.logoutButtonText}>Çıkış yap</Text>
       </TouchableOpacity>
     </View>

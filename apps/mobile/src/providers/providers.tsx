@@ -6,6 +6,7 @@ import { authStore } from '@/lib/auth-store';
 import { refreshSession } from '@/lib/session';
 import { trpc, trpcUrl } from '@/lib/trpc';
 import { AuthContextProvider } from './auth-context';
+import { CartProvider } from './cart-context';
 
 /** Bearer başlığı ekler; 401'de bir kez refresh dener ve isteği tekrarlar. */
 const authedFetch: typeof fetch = async (input, init) => {
@@ -38,7 +39,9 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <AuthContextProvider>{children}</AuthContextProvider>
+        <AuthContextProvider>
+          <CartProvider>{children}</CartProvider>
+        </AuthContextProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

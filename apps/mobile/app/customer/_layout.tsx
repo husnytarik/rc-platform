@@ -2,6 +2,7 @@ import { isCustomerRole } from '@rc/shared';
 import { Redirect, Tabs, router } from 'expo-router';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '@/providers/auth-context';
+import { useCart } from '@/providers/cart-context';
 import { colors } from '@/theme';
 
 function AccountHeaderButton() {
@@ -14,6 +15,7 @@ function AccountHeaderButton() {
 
 export default function CustomerLayout() {
   const { status, identity } = useAuth();
+  const cart = useCart();
 
   if (status === 'loading') {
     return (
@@ -34,6 +36,13 @@ export default function CustomerLayout() {
       }}
     >
       <Tabs.Screen name="katalog" options={{ title: 'Katalog' }} />
+      <Tabs.Screen
+        name="sepet"
+        options={{
+          title: 'Sepet',
+          tabBarBadge: cart.totalQty > 0 ? cart.totalQty : undefined,
+        }}
+      />
       <Tabs.Screen name="siparislerim" options={{ title: 'Siparişlerim' }} />
       <Tabs.Screen name="hesap" options={{ href: null, title: 'Hesap' }} />
     </Tabs>

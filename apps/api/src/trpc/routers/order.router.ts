@@ -54,6 +54,8 @@ export function makeOrderRouter(orders: OrderService) {
       .input(createInput)
       .mutation(({ input, ctx }) => orders.createOrder(input, ctx.user)),
 
+    myBranches: capabilityProcedure('order.create').query(({ ctx }) => orders.myBranches(ctx.user)),
+
     list: capabilityAnyProcedure(viewCaps)
       .input(listInput)
       .query(({ input, ctx }) => orders.listOrders(input, ctx.user)),

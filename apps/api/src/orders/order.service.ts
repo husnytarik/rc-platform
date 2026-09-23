@@ -84,6 +84,17 @@ export class OrderService {
     return new Set(scopes.flat());
   }
 
+  /** Müşteri kendi firmasının (kapsamı varsa yalnız izinli) şubelerini görür — checkout şube seçimi için. */
+  async myBranches(actor: OrderActor) {
+    const { orgId } = await this.customerContext(actor);
+    const allowed = this.branchScopeFor(actor, orgId);
+    return this.prisma.branch.findMany({
+      where: { orgId, isActive: true, ...(allowed ? { id: { in: [...allowed] } } : {}) },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, address: true },
+    });
+  }
+
   // ── Oluşturma ──────────────────────────────────────────────────────────────
 
   async createOrder(input: CreateOrderInput, actor: OrderActor) {
