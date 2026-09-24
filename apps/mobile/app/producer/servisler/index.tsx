@@ -5,7 +5,7 @@ import {
 } from '@rc/shared';
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -16,6 +16,127 @@ const STATUS_COLOR: Record<ServiceRequestStatus, string> = {
   done: '#3a7d5c',
   rejected: colors.danger,
 };
+
+function errText(e: unknown, fallback: string): string {
+  const m = (e as { message?: string } | undefined)?.message;
+  return m && m.length < 200 ? m : fallback;
+}
+
+interface AdminService {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  basePrice: number | null;
+  isActive: boolean;
+}
+
+function ServiceEditor({ service }: { service: AdminService }) {
+  const utils = trpc.useUtils();
+  const [name, setName] = useState(service.name);
+  const [description, setDescription] = useState(service.description ?? '');
+  const [basePrice, setBasePrice] = useState(service.basePrice != null ? String(service.basePrice) : '');
+  const [isActive, setIsActive] = useState(service.isActive);
+  const [error, setError] = useState<string | null>(null);
+
+  const update = trpc.service.update.useMutation({
+    onSuccess: () => {
+      void utils.service.adminList.invalidate();
+      void utils.service.listActive.invalidate();
+    },
+    onError: (e) => setError(errText(e, 'Kaydedilemedi.')),
+  });
+
+  return (
+    <View style={styles.editor}>
+      <View style={styles.field}>
+        <Text style={styles.label}>Ad</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} />
+      </View>
+      <View style={styles.field}>
+        <Text style={styles.label}>Açıklama</Text>
+        <TextInput
+          style={[styles.input, styles.multiline]}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          placeholder="opsiyonel"
+          placeholderTextColor={colors.inkFaint}
+        />
+      </View>
+      <View style={styles.field}>
+        <Text style={styles.label}>Başlangıç fiyatı</Text>
+        <TextInput
+          style={styles.input}
+          value={basePrice}
+          onChangeText={setBasePrice}
+          keyboardType="decimal-pad"
+          placeholder="opsiyonel"
+          placeholderTextColor={colors.inkFaint}
+        />
+      </View>
+      <TouchableOpacity style={styles.toggleRow} onPress={() => setIsActive((v) => !v)}>
+        <View style={[styles.checkbox, isActive && styles.checkboxActive]} />
+        <Text style={styles.toggleLabel}>Aktif (talep formunda görünür)</Text>
+      </TouchableOpacity>
+      {error && <Text style={styles.errorText}>{error}</Text>}
+      <TouchableOpacity
+        style={[styles.saveButton, update.isPending && styles.saveButtonDisabled]}
+        disabled={update.isPending}
+        onPress={() => {
+          setError(null);
+          const price = basePrice.trim() ? Number(basePrice.replace(',', '.')) : null;
+          update.mutate({
+            id: service.id,
+            name: name.trim(),
+            description: description.trim() || null,
+            basePrice: price !== null && Number.isFinite(price) ? price : null,
+            isActive,
+          });
+        }}
+      >
+        {update.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Kaydet</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function ServiceCatalogSection() {
+  const { data } = trpc.service.adminList.useQuery();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(true);
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <View style={styles.catalogCard}>
+      <TouchableOpacity style={styles.catalogHeader} onPress={() => setCollapsed((c) => !c)}>
+        <Text style={styles.sectionLabel}>Servis kataloğu ({data.length})</Text>
+        <Text style={styles.chevron}>{collapsed ? '+' : '−'}</Text>
+      </TouchableOpacity>
+      {!collapsed &&
+        data.map((s) => {
+          const isOpen = openId === s.id;
+          return (
+            <View key={s.id} style={styles.catalogRow}>
+              <TouchableOpacity style={styles.catalogRowTop} onPress={() => setOpenId(isOpen ? null : s.id)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowTitle}>{s.name}</Text>
+                  <Text style={styles.cardMeta}>
+                    {s.code}
+                    {s.basePrice != null ? ` · ${s.basePrice.toFixed(2)}` : ''}
+                    {!s.isActive ? ' · pasif' : ''}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>{isOpen ? '−' : '+'}</Text>
+              </TouchableOpacity>
+              {isOpen && <ServiceEditor service={s} />}
+            </View>
+          );
+        })}
+    </View>
+  );
+}
 
 export default function ProducerServislerScreen() {
   const utils = trpc.useUtils();
@@ -78,6 +199,7 @@ export default function ProducerServislerScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          <ServiceCatalogSection />
         </View>
       }
       ListEmptyComponent={
@@ -171,4 +293,40 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(1.5),
   },
   statusButtonText: { fontSize: 11, fontWeight: '700' },
+  catalogCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing(3.5),
+    gap: spacing(2),
+  },
+  catalogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionLabel: { fontSize: 13, color: colors.inkMuted, fontWeight: '700' },
+  chevron: { fontSize: 18, color: colors.inkMuted, fontWeight: '700' },
+  catalogRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing(2), gap: spacing(2) },
+  catalogRowTop: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
+  rowTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  editor: { gap: spacing(2.5), paddingLeft: spacing(1) },
+  field: { gap: spacing(1.5) },
+  label: { fontSize: 12, color: colors.inkMuted, fontWeight: '600' },
+  input: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2.5),
+    fontSize: 13,
+    color: colors.ink,
+  },
+  multiline: { minHeight: 70, textAlignVertical: 'top' },
+  errorText: { color: colors.danger, fontSize: 12 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(2.5) },
+  checkbox: { width: 20, height: 20, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+  checkboxActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  toggleLabel: { fontSize: 13, color: colors.ink, fontWeight: '600' },
+  saveButton: { backgroundColor: colors.accent, borderRadius: radius.sm, paddingVertical: spacing(3), alignItems: 'center' },
+  saveButtonDisabled: { backgroundColor: colors.border },
+  saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });
