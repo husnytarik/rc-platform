@@ -39,6 +39,7 @@ const createProductInput = z.object({
   description: z.string().max(2000).optional(),
   imageUrl: z.string().url().max(500).optional(),
   allowPreorder: z.boolean().optional(),
+  isService: z.boolean().optional(),
 });
 
 const updateProductInput = z.object({
@@ -50,6 +51,7 @@ const updateProductInput = z.object({
   imageUrl: z.string().url().max(500).nullable().optional(),
   allowPreorder: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  isService: z.boolean().optional(),
 });
 
 const createVariantInput = z.object({

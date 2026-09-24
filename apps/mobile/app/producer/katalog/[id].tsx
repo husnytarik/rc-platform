@@ -249,6 +249,7 @@ export default function UrunDuzenleScreen() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [allowPreorder, setAllowPreorder] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [isService, setIsService] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openVariant, setOpenVariant] = useState<string | null>(null);
 
@@ -261,6 +262,7 @@ export default function UrunDuzenleScreen() {
     setCategoryId(p.categoryId);
     setAllowPreorder(p.allowPreorder);
     setIsActive(p.isActive);
+    setIsService(p.isService);
   }, [p]);
 
   const update = trpc.catalog.updateProduct.useMutation({
@@ -333,6 +335,10 @@ export default function UrunDuzenleScreen() {
           <View style={[styles.checkbox, isActive && styles.checkboxActive]} />
           <Text style={styles.toggleLabel}>Aktif (katalogda görünür)</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.toggleRow} onPress={() => setIsService((v) => !v)}>
+          <View style={[styles.checkbox, isService && styles.checkboxActive]} />
+          <Text style={styles.toggleLabel}>Bu bir servis (katalog listesinde satılmaz)</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.saveButton, update.isPending && styles.submitButtonDisabled]}
           disabled={update.isPending}
@@ -347,6 +353,7 @@ export default function UrunDuzenleScreen() {
               categoryId,
               allowPreorder,
               isActive,
+              isService,
             });
           }}
         >

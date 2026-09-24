@@ -209,12 +209,11 @@ export class CatalogService {
     return rows;
   }
 
-  /** Yönetim listesi: pasif ürünler dahil, düzenleme ekranı için özet alanlar. */
+  /** Yönetim listesi: pasif ürünler ve servisler dahil, düzenleme ekranı için özet alanlar. */
   async adminList(input: { search?: string; limit?: number; cursor?: string }) {
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 100);
     const rows = await this.prisma.product.findMany({
       where: {
-        isService: false,
         ...(input.search ? { name: { contains: input.search, mode: 'insensitive' } } : {}),
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
@@ -234,6 +233,7 @@ export class CatalogService {
         name: p.name,
         categoryName: p.category?.name ?? null,
         isActive: p.isActive,
+        isService: p.isService,
         variantCount: p.variants.length,
         activeVariantCount: p.variants.filter((v) => v.isActive).length,
       })),
@@ -258,6 +258,7 @@ export class CatalogService {
       brand: p.brand,
       imageUrl: p.imageUrl,
       isActive: p.isActive,
+      isService: p.isService,
       allowPreorder: p.allowPreorder,
       variants: p.variants.map((v) => ({
         id: v.id,
@@ -296,6 +297,7 @@ export class CatalogService {
       description?: string;
       imageUrl?: string;
       allowPreorder?: boolean;
+      isService?: boolean;
     },
     actor: CatalogActor,
   ) {
@@ -312,6 +314,7 @@ export class CatalogService {
         description: input.description ?? null,
         imageUrl: input.imageUrl ?? null,
         allowPreorder: input.allowPreorder ?? false,
+        isService: input.isService ?? false,
       },
     });
     await this.logCatalog(actor, 'catalog.product_create', 'product', product.id, { code: product.code });
@@ -328,6 +331,7 @@ export class CatalogService {
       imageUrl?: string | null;
       allowPreorder?: boolean;
       isActive?: boolean;
+      isService?: boolean;
     },
     actor: CatalogActor,
   ) {

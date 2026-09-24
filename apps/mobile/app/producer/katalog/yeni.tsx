@@ -21,6 +21,7 @@ export default function YeniUrunScreen() {
   const [imageUrl, setImageUrl] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [allowPreorder, setAllowPreorder] = useState(false);
+  const [isService, setIsService] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const create = trpc.catalog.createProduct.useMutation({
@@ -103,6 +104,11 @@ export default function YeniUrunScreen() {
         <Text style={styles.toggleLabel}>Ön siparişe izin ver</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.toggleRow} onPress={() => setIsService((v) => !v)}>
+        <View style={[styles.checkbox, isService && styles.checkboxActive]} />
+        <Text style={styles.toggleLabel}>Bu bir servis (katalog listesinde satılmaz)</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={[styles.submitButton, (!canSubmit || create.isPending) && styles.submitButtonDisabled]}
         disabled={!canSubmit || create.isPending}
@@ -116,6 +122,7 @@ export default function YeniUrunScreen() {
             imageUrl: imageUrl.trim() || undefined,
             categoryId: categoryId ?? undefined,
             allowPreorder,
+            isService,
           });
         }}
       >

@@ -45,11 +45,18 @@ export function KatalogManageScreen() {
           <TouchableOpacity style={styles.card}>
             <View style={styles.cardTop}>
               <Text style={styles.cardTitle}>{item.name}</Text>
-              {!item.isActive && (
-                <View style={styles.inactiveBadge}>
-                  <Text style={styles.inactiveBadgeText}>Pasif</Text>
-                </View>
-              )}
+              <View style={styles.badgeRow}>
+                {item.isService && (
+                  <View style={styles.serviceBadge}>
+                    <Text style={styles.serviceBadgeText}>Servis</Text>
+                  </View>
+                )}
+                {!item.isActive && (
+                  <View style={styles.inactiveBadge}>
+                    <Text style={styles.inactiveBadgeText}>Pasif</Text>
+                  </View>
+                )}
+              </View>
             </View>
             <Text style={styles.cardMeta}>
               {item.code} · {item.categoryName ?? '—'} · {item.activeVariantCount}/{item.variantCount} varyant aktif
@@ -84,6 +91,9 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   cardMeta: { fontSize: 12, color: colors.inkMuted },
+  badgeRow: { flexDirection: 'row', gap: spacing(1.5) },
   inactiveBadge: { backgroundColor: colors.dangerSoft, borderRadius: radius.pill, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1) },
   inactiveBadgeText: { color: colors.danger, fontSize: 11, fontWeight: '700' },
+  serviceBadge: { backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1) },
+  serviceBadgeText: { color: colors.accent, fontSize: 11, fontWeight: '700' },
 });
