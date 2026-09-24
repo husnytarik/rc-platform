@@ -21,6 +21,7 @@ export const CAPABILITIES = [
   'membership.review', // başvuru onay/red
   'customer.manage', // firma + şube + kullanıcı yönetimi
   'ticket.handle', // destek taleplerini yanıtla
+  'service.manage', // servis kataloğu + gelen servis taleplerinin durumu
   'announcement.manage',
   'report.view',
   'import.run',
@@ -43,6 +44,7 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'membership.review',
     'customer.manage',
     'ticket.handle',
+    'service.manage',
     'report.view',
   ],
 

@@ -7,6 +7,7 @@ import { CustomerService } from '../customer/customer.service';
 import { MembershipService } from '../membership/membership.service';
 import { OrderService } from '../orders/order.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ServicesService } from '../services/services.service';
 import { makeAppRouter, type AppRouter } from './app-router';
 import { makeCreateContext } from './trpc-context';
 
@@ -27,9 +28,10 @@ export class TrpcService {
     customer: CustomerService,
     membership: MembershipService,
     orders: OrderService,
+    services: ServicesService,
     stock: StockService,
   ) {
-    this.appRouter = makeAppRouter({ auth, catalog, customer, membership, orders, stock });
+    this.appRouter = makeAppRouter({ auth, catalog, customer, membership, orders, services, stock });
     this.createContext = makeCreateContext({ tokens, prisma });
   }
 }

@@ -9,7 +9,13 @@ import type { Capability } from '@rc/shared';
 export interface ProducerNavItem {
   key: string;
   label: string;
-  href: '/producer/siparisler' | '/producer/basvurular' | '/producer/katalog' | '/producer/stok' | '/producer/musteriler';
+  href:
+    | '/producer/siparisler'
+    | '/producer/basvurular'
+    | '/producer/katalog'
+    | '/producer/stok'
+    | '/producer/musteriler'
+    | '/producer/servisler';
   cap: Capability;
 }
 
@@ -19,4 +25,5 @@ export const PRODUCER_NAV: ProducerNavItem[] = [
   { key: 'katalog', label: 'Katalog', href: '/producer/katalog', cap: 'catalog.view' },
   { key: 'stok', label: 'Stok', href: '/producer/stok', cap: 'catalog.view' },
   { key: 'musteriler', label: 'Müşteriler', href: '/producer/musteriler', cap: 'customer.manage' },
+  { key: 'servisler', label: 'Servisler', href: '/producer/servisler', cap: 'service.manage' },
 ];

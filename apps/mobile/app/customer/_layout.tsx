@@ -44,6 +44,7 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen name="siparislerim" options={{ title: 'Siparişlerim' }} />
+      <Tabs.Screen name="servisler" options={{ title: 'Servisler' }} />
       <Tabs.Screen name="hesap" options={{ href: null, title: 'Hesap' }} />
     </Tabs>
   );

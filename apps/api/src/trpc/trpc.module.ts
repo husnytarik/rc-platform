@@ -4,6 +4,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { CustomerModule } from '../customer/customer.module';
 import { MembershipModule } from '../membership/membership.module';
 import { OrderModule } from '../orders/order.module';
+import { ServicesModule } from '../services/services.module';
 import { TrpcService } from './trpc.service';
 
 /**
@@ -11,7 +12,7 @@ import { TrpcService } from './trpc.service';
  * `CatalogService`, OrderModule `OrderService` export eder.
  */
 @Module({
-  imports: [AuthModule, CatalogModule, CustomerModule, MembershipModule, OrderModule],
+  imports: [AuthModule, CatalogModule, CustomerModule, MembershipModule, OrderModule, ServicesModule],
   providers: [TrpcService],
   exports: [TrpcService],
 })
