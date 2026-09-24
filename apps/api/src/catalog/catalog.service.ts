@@ -18,6 +18,21 @@ interface CallerMembership {
   role: Role;
 }
 
+export interface CatalogActor {
+  id: string;
+  roles: Role[];
+}
+
+function slugify(s: string): string {
+  return s
+    .toLocaleLowerCase('tr')
+    .replace(/ı/g, 'i')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 export interface CatalogListInput {
   categorySlug?: string;
   search?: string;
@@ -192,5 +207,207 @@ export class CatalogService {
       select: { id: true, slug: true, name: true, parentId: true, sortOrder: true },
     });
     return rows;
+  }
+
+  /** Yönetim listesi: pasif ürünler dahil, düzenleme ekranı için özet alanlar. */
+  async adminList(input: { search?: string; limit?: number; cursor?: string }) {
+    const limit = Math.min(Math.max(input.limit ?? 30, 1), 100);
+    const rows = await this.prisma.product.findMany({
+      where: {
+        isService: false,
+        ...(input.search ? { name: { contains: input.search, mode: 'insensitive' } } : {}),
+      },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      include: {
+        category: { select: { name: true } },
+        variants: { select: { isActive: true } },
+      },
+    });
+    const hasMore = rows.length > limit;
+    const products = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      items: products.map((p) => ({
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        categoryName: p.category?.name ?? null,
+        isActive: p.isActive,
+        variantCount: p.variants.length,
+        activeVariantCount: p.variants.filter((v) => v.isActive).length,
+      })),
+      nextCursor: hasMore ? (products[products.length - 1]?.id ?? null) : null,
+    };
+  }
+
+  /** Yönetim detayı: pasif varyantlar dahil, düzenleme formu için ham alanlar. */
+  async adminProduct(id: string) {
+    const p = await this.prisma.product.findUnique({
+      where: { id },
+      include: { variants: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ürün bulunamadı.' });
+    return {
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      categoryId: p.categoryId,
+      brand: p.brand,
+      imageUrl: p.imageUrl,
+      isActive: p.isActive,
+      allowPreorder: p.allowPreorder,
+      variants: p.variants.map((v) => ({
+        id: v.id,
+        code: v.code,
+        name: v.name,
+        orderUom: v.orderUom,
+        basePrice: Number(v.basePrice),
+        minOrderQty: Number(v.minOrderQty),
+        qtyStep: Number(v.qtyStep),
+        contentAmount: v.contentAmount != null ? Number(v.contentAmount) : null,
+        contentUom: v.contentUom,
+        lowStockThreshold: v.lowStockThreshold != null ? Number(v.lowStockThreshold) : null,
+        isActive: v.isActive,
+      })),
+    };
+  }
+
+  private async logCatalog(
+    actor: CatalogActor,
+    action: string,
+    entityType: string,
+    entityId: string,
+    after: Prisma.InputJsonValue,
+  ) {
+    await this.prisma.activityLog.create({
+      data: { actorId: actor.id, actorRole: actor.roles[0], action, entityType, entityId, after },
+    });
+  }
+
+  async createProduct(
+    input: {
+      code: string;
+      name: string;
+      categoryId?: string;
+      brand?: string;
+      description?: string;
+      imageUrl?: string;
+      allowPreorder?: boolean;
+    },
+    actor: CatalogActor,
+  ) {
+    const existing = await this.prisma.product.findUnique({ where: { code: input.code } });
+    if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Bu ürün kodu zaten kullanılıyor.' });
+
+    const product = await this.prisma.product.create({
+      data: {
+        code: input.code,
+        name: input.name,
+        slug: slugify(input.name) || input.code.toLowerCase(),
+        categoryId: input.categoryId ?? null,
+        brand: input.brand ?? null,
+        description: input.description ?? null,
+        imageUrl: input.imageUrl ?? null,
+        allowPreorder: input.allowPreorder ?? false,
+      },
+    });
+    await this.logCatalog(actor, 'catalog.product_create', 'product', product.id, { code: product.code });
+    return { id: product.id };
+  }
+
+  async updateProduct(
+    input: {
+      id: string;
+      name?: string;
+      categoryId?: string | null;
+      brand?: string | null;
+      description?: string | null;
+      imageUrl?: string | null;
+      allowPreorder?: boolean;
+      isActive?: boolean;
+    },
+    actor: CatalogActor,
+  ) {
+    const before = await this.prisma.product.findUnique({ where: { id: input.id } });
+    if (!before) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ürün bulunamadı.' });
+
+    const { id, ...fields } = input;
+    await this.prisma.product.update({
+      where: { id },
+      data: {
+        ...fields,
+        ...(fields.name ? { slug: slugify(fields.name) || before.code.toLowerCase() } : {}),
+      },
+    });
+    await this.logCatalog(actor, 'catalog.product_update', 'product', id, fields);
+    return { id };
+  }
+
+  async createVariant(
+    input: {
+      productId: string;
+      code: string;
+      name: string;
+      orderUom: Uom;
+      basePrice: number;
+      minOrderQty?: number;
+      qtyStep?: number;
+      contentAmount?: number;
+      contentUom?: Uom;
+      lowStockThreshold?: number;
+    },
+    actor: CatalogActor,
+  ) {
+    const product = await this.prisma.product.findUnique({ where: { id: input.productId } });
+    if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ürün bulunamadı.' });
+    const existing = await this.prisma.productVariant.findUnique({ where: { code: input.code } });
+    if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Bu varyant kodu zaten kullanılıyor.' });
+
+    const variant = await this.prisma.productVariant.create({
+      data: {
+        productId: input.productId,
+        code: input.code,
+        name: input.name,
+        orderUom: input.orderUom,
+        basePrice: input.basePrice,
+        minOrderQty: input.minOrderQty ?? 1,
+        qtyStep: input.qtyStep ?? 1,
+        contentAmount: input.contentAmount ?? null,
+        contentUom: input.contentUom ?? null,
+        lowStockThreshold: input.lowStockThreshold ?? null,
+      },
+    });
+    await this.logCatalog(actor, 'catalog.variant_create', 'product_variant', variant.id, {
+      productId: input.productId,
+      code: variant.code,
+    });
+    return { id: variant.id };
+  }
+
+  async updateVariant(
+    input: {
+      id: string;
+      name?: string;
+      orderUom?: Uom;
+      basePrice?: number;
+      minOrderQty?: number;
+      qtyStep?: number;
+      contentAmount?: number | null;
+      contentUom?: Uom | null;
+      lowStockThreshold?: number | null;
+      isActive?: boolean;
+    },
+    actor: CatalogActor,
+  ) {
+    const before = await this.prisma.productVariant.findUnique({ where: { id: input.id } });
+    if (!before) throw new TRPCError({ code: 'NOT_FOUND', message: 'Varyant bulunamadı.' });
+
+    const { id, ...fields } = input;
+    await this.prisma.productVariant.update({ where: { id }, data: fields });
+    await this.logCatalog(actor, 'catalog.variant_update', 'product_variant', id, fields);
+    return { id };
   }
 }
