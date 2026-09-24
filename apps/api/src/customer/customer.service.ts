@@ -27,6 +27,26 @@ export interface ListCustomersInput {
   cursor?: string;
 }
 
+export interface UpdateActor extends CallerScope {
+  id: string;
+}
+
+export interface UpdateCustomerInput {
+  id: string;
+  name?: string;
+  taxId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+}
+
+export interface UpdateBranchInput {
+  id: string;
+  name?: string;
+  address?: string | null;
+  phone?: string | null;
+}
+
 @Injectable()
 export class CustomerService {
   constructor(private readonly prisma: PrismaService) {}
@@ -185,5 +205,78 @@ export class CustomerService {
     );
 
     return { id: updated.id, isActive: updated.isActive };
+  }
+
+  async update(input: UpdateCustomerInput, actor: UpdateActor) {
+    if (!UUID_RE.test(input.id)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Geçersiz müşteri kimliği.' });
+    }
+    const producer = actor.roles.some(isProducerRole);
+    if (!producer && !actor.orgIds.includes(input.id)) {
+      // Varlığı bile sızdırmamak için FORBIDDEN değil NOT_FOUND.
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Müşteri bulunamadı.' });
+    }
+    const o = await this.prisma.organization.findFirst({ where: { id: input.id, type: 'customer' } });
+    if (!o) throw new TRPCError({ code: 'NOT_FOUND', message: 'Müşteri bulunamadı.' });
+
+    const { id, ...fields } = input;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.organization.update({ where: { id }, data: fields });
+      await tx.activityLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: actor.roles[0],
+          orgId: id,
+          action: 'customer.update',
+          entityType: 'organization',
+          entityId: id,
+          before: { name: o.name, taxId: o.taxId, phone: o.phone, email: o.email, address: o.address },
+          after: fields,
+        },
+      });
+      return u;
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      taxId: updated.taxId,
+      phone: updated.phone,
+      email: updated.email,
+      address: updated.address,
+    };
+  }
+
+  async updateBranch(input: UpdateBranchInput, actor: UpdateActor) {
+    if (!UUID_RE.test(input.id)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Geçersiz şube kimliği.' });
+    }
+    const branch = await this.prisma.branch.findUnique({ where: { id: input.id } });
+    if (!branch) throw new TRPCError({ code: 'NOT_FOUND', message: 'Şube bulunamadı.' });
+
+    const producer = actor.roles.some(isProducerRole);
+    if (!producer && !actor.orgIds.includes(branch.orgId)) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Şube bulunamadı.' });
+    }
+
+    const { id, ...fields } = input;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.branch.update({ where: { id }, data: fields });
+      await tx.activityLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: actor.roles[0],
+          orgId: branch.orgId,
+          action: 'customer.branch_update',
+          entityType: 'branch',
+          entityId: id,
+          before: { name: branch.name, address: branch.address, phone: branch.phone },
+          after: fields,
+        },
+      });
+      return u;
+    });
+
+    return { id: updated.id, name: updated.name, address: updated.address, phone: updated.phone };
   }
 }
