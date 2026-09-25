@@ -40,7 +40,7 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.roasteryclub.app',
     supportsTablet: true,
-    buildNumber: '2',
+    buildNumber: '3',
     usesAppleSignIn: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
