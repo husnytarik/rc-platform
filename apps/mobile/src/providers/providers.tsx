@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { useState, type ReactNode } from 'react';
 import superjson from 'superjson';
+import { PushBootstrap } from '@/components/PushBootstrap';
 import { authStore } from '@/lib/auth-store';
 import { refreshSession } from '@/lib/session';
 import { trpc, trpcUrl } from '@/lib/trpc';
@@ -40,7 +41,10 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <AuthContextProvider>
-          <CartProvider>{children}</CartProvider>
+          <CartProvider>
+            <PushBootstrap />
+            {children}
+          </CartProvider>
         </AuthContextProvider>
       </QueryClientProvider>
     </trpc.Provider>

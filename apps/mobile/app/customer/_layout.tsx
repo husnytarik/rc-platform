@@ -1,18 +1,10 @@
 import { isCustomerRole } from '@rc/shared';
-import { Redirect, Tabs, router } from 'expo-router';
-import { Text, TouchableOpacity } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
 import { useAuth } from '@/providers/auth-context';
 import { useCart } from '@/providers/cart-context';
 import { colors } from '@/theme';
+import { HeaderActions } from '@/components/HeaderActions';
 import { StartupLoading } from '@/components/StartupLoading';
-
-function AccountHeaderButton() {
-  return (
-    <TouchableOpacity onPress={() => router.push('/customer/hesap')} style={{ marginRight: 16 }}>
-      <Text style={{ color: colors.accent, fontWeight: '600', fontSize: 14 }}>Hesap</Text>
-    </TouchableOpacity>
-  );
-}
 
 export default function CustomerLayout() {
   const { status, identity } = useAuth();
@@ -25,11 +17,12 @@ export default function CustomerLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerRight: () => <AccountHeaderButton />,
+        headerRight: () => <HeaderActions base="/customer" />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.inkFaint,
       }}
     >
+      <Tabs.Screen name="index" options={{ title: 'Ana Sayfa' }} />
       <Tabs.Screen name="katalog" options={{ title: 'Katalog' }} />
       <Tabs.Screen
         name="sepet"
@@ -39,7 +32,10 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen name="siparislerim" options={{ title: 'Siparişlerim' }} />
-      <Tabs.Screen name="servisler" options={{ title: 'Servisler' }} />
+      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla' }} />
+      <Tabs.Screen name="servisler" options={{ href: null, title: 'Servisler' }} />
+      <Tabs.Screen name="destek" options={{ href: null, title: 'Destek' }} />
+      <Tabs.Screen name="bildirimler" options={{ href: null, title: 'Bildirimler' }} />
       <Tabs.Screen name="hesap" options={{ href: null, title: 'Hesap' }} />
     </Tabs>
   );

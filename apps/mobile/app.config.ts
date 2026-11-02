@@ -72,6 +72,7 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-apple-authentication',
+    'expo-notifications',
     ...(googleSigninPlugin ? [googleSigninPlugin] : []),
   ],
 

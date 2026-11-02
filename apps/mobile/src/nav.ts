@@ -1,29 +1,26 @@
 import type { Capability } from '@rc/shared';
 
 /**
- * Üretici tarafı sekme listesi. `cap` görünürlüğü kontrol eder — satır bazlı
- * kapsamı sunucu ayrıca zorlar. Yalnızca gerçek bir tRPC router'ı olan
- * ekranlar burada — arka ucu olmayanlar (Destek, Duyurular, Raporlar,
- * Fiyat Listeleri) henüz eklenmedi.
+ * Üretici tarafı ekran listesi. `cap` görünürlüğü kontrol eder — satır bazlı
+ * kapsamı sunucu ayrıca zorlar. `primary` olanlar alt sekme çubuğunda, diğerleri
+ * "Daha fazla" menüsünde listelenir (çubuk 5 sekmeyi aşmasın diye).
  */
 export interface ProducerNavItem {
   key: string;
   label: string;
-  href:
-    | '/producer/siparisler'
-    | '/producer/basvurular'
-    | '/producer/katalog'
-    | '/producer/stok'
-    | '/producer/musteriler'
-    | '/producer/servisler';
+  hint: string;
+  href: string;
   cap: Capability;
+  primary: boolean;
 }
 
 export const PRODUCER_NAV: ProducerNavItem[] = [
-  { key: 'siparisler', label: 'Siparişler', href: '/producer/siparisler', cap: 'order.view.all' },
-  { key: 'basvurular', label: 'Başvurular', href: '/producer/basvurular', cap: 'membership.review' },
-  { key: 'katalog', label: 'Katalog', href: '/producer/katalog', cap: 'catalog.view' },
-  { key: 'stok', label: 'Stok', href: '/producer/stok', cap: 'catalog.view' },
-  { key: 'musteriler', label: 'Müşteriler', href: '/producer/musteriler', cap: 'customer.manage' },
-  { key: 'servisler', label: 'Servisler', href: '/producer/servisler', cap: 'service.manage' },
+  { key: 'siparisler', label: 'Siparişler', hint: 'Sipariş akışı ve durum geçişleri', href: '/producer/siparisler', cap: 'order.view.all', primary: true },
+  { key: 'basvurular', label: 'Başvurular', hint: 'Yeni müşteri başvuruları', href: '/producer/basvurular', cap: 'membership.review', primary: true },
+  { key: 'katalog', label: 'Katalog', hint: 'Ürün ve varyant yönetimi', href: '/producer/katalog', cap: 'catalog.view', primary: true },
+  { key: 'destek', label: 'Destek', hint: 'Müşteri destek talepleri', href: '/producer/destek', cap: 'ticket.handle', primary: true },
+  { key: 'stok', label: 'Stok', hint: 'Stok ve rezervasyonlar', href: '/producer/stok', cap: 'catalog.view', primary: false },
+  { key: 'musteriler', label: 'Müşteriler', hint: 'Firmalar, şubeler, kullanıcılar', href: '/producer/musteriler', cap: 'customer.manage', primary: false },
+  { key: 'servisler', label: 'Servisler', hint: 'Servis kataloğu ve talepler', href: '/producer/servisler', cap: 'service.manage', primary: false },
+  { key: 'duyurular', label: 'Duyurular', hint: 'Müşterilere duyuru ve bildirim gönder', href: '/producer/duyurular', cap: 'announcement.manage', primary: false },
 ];
