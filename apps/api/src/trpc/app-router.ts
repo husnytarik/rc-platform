@@ -1,11 +1,17 @@
 import type { AuthService } from '../auth/auth.service';
 import type { CatalogService } from '../catalog/catalog.service';
 import type { StockService } from '../catalog/stock.service';
+import type { AnnouncementService } from '../engage/announcement.service';
+import type { NotificationService } from '../engage/notification.service';
+import type { TicketService } from '../engage/ticket.service';
 import type { CustomerService } from '../customer/customer.service';
 import type { MembershipService } from '../membership/membership.service';
 import type { OrderService } from '../orders/order.service';
 import type { ServicesService } from '../services/services.service';
 import { makeAuthRouter } from './routers/auth.router';
+import { makeAnnouncementRouter } from './routers/announcement.router';
+import { makeNotificationRouter } from './routers/notification.router';
+import { makeTicketRouter } from './routers/ticket.router';
 import { makeCatalogRouter } from './routers/catalog.router';
 import { makeCustomerRouter } from './routers/customer.router';
 import { makeMembershipRouter } from './routers/membership.router';
@@ -22,6 +28,9 @@ interface RouterDeps {
   orders: OrderService;
   services: ServicesService;
   stock: StockService;
+  announcements: AnnouncementService;
+  tickets: TicketService;
+  notifications: NotificationService;
 }
 
 /**
@@ -37,6 +46,9 @@ export function makeAppRouter(deps: RouterDeps) {
     orders: makeOrderRouter(deps.orders),
     service: makeServiceRouter(deps.services),
     stock: makeStockRouter(deps.stock),
+    announcement: makeAnnouncementRouter(deps.announcements),
+    ticket: makeTicketRouter(deps.tickets),
+    notification: makeNotificationRouter(deps.notifications),
   });
 }
 

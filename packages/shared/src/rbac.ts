@@ -70,7 +70,13 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
 
   branch_manager: ['catalog.view', 'price.view', 'order.create', 'order.view.own', 'ticket.handle'],
 
-  customer_user: ['catalog.view', 'price.view', 'order.create', 'order.view.own'],
+  customer_user: [
+    'catalog.view',
+    'price.view',
+    'order.create',
+    'order.view.own',
+    'ticket.handle', // destek talebi açabilir (yalnız kendi firması)
+  ],
 };
 
 export function can(role: Role, cap: Capability): boolean {

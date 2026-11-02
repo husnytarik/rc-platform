@@ -116,6 +116,12 @@ export class AuthService {
           userAgent: ctx.userAgent,
         },
       });
+      await tx.outboxEvent.create({
+        data: {
+          topic: 'membership.requested',
+          payload: { userId, orgName: register.orgName },
+        },
+      });
     });
 
     return { ok: true };
