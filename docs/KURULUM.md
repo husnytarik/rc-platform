@@ -33,7 +33,6 @@ Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
 
 1. Yeni GitHub repo (`rc-platform`, private) açıp bağlamak istersen: repo URL'ini ver, remote ekleyip push ederim. (Zorunlu değil, yerelde ilerliyoruz.)
 2. SMS/WhatsApp sağlayıcı — sonra seçilecek. Şimdilik `OTP_DEV_ECHO=true` ve OTP kodu log'a yazılıyor; sağlayıcı seçilince `SmsService` arkasına takılır, `.env`'e kimlik bilgileri eklenip `OTP_DEV_ECHO=false` yapılır.
-3. Eski repo `rc_controlcenter` için Apple `.p8` anahtarını iptal/yenile (sızıntı temizliği; acil değil).
 
 ## tRPC katmanı — bağlandı ✅
 
