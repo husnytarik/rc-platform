@@ -73,7 +73,6 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-apple-authentication',
     'expo-notifications',
-    ...(process.env.ENABLE_PUSH === '1' ? ['expo-notifications'] : []),
     ...(googleSigninPlugin ? [googleSigninPlugin] : []),
   ],
 
