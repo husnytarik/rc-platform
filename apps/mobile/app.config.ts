@@ -72,8 +72,7 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-apple-authentication',
-    // Push yetkisi (aps-environment) Apple provisioning profile'ında açılana kadar
-    // varsayılan kapalı; açmak için build ortamına ENABLE_PUSH=1 verin.
+    'expo-notifications',
     ...(process.env.ENABLE_PUSH === '1' ? ['expo-notifications'] : []),
     ...(googleSigninPlugin ? [googleSigninPlugin] : []),
   ],
