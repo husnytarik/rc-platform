@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import {
   canTransition,
+  isTerminal,
   nextTransitions,
   ORDER_STATUSES,
   stockIsReserved,
@@ -337,6 +338,123 @@ export class OrderService {
     return this.shape(updated, actor.roles);
   }
 
+  // ── Sonradan kalem ekleme (SPEC §16) ────────────────────────────────────────
+
+  /** Personel, açık bir siparişe ürün kalemi ekler; fiyat müşteri için sunucuda çözülür. */
+  async addLine(
+    orderRef: string,
+    input: { variantId: string; qty: number; note?: string },
+    actor: OrderActor,
+  ) {
+    const order = await this.loadForWrite(orderRef, actor);
+    const status = order.status as OrderStatus;
+    if (isTerminal(status)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Kapanmış siparişe kalem eklenemez.' });
+    }
+    const actingRole = actor.roles.find((r) => this.isProducer([r]));
+    if (!actingRole) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Kalem ekleme yetkiniz yok.' });
+    }
+
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { id: input.variantId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        orderUom: true,
+        product: { select: { isActive: true } },
+      },
+    });
+    if (!variant || !variant.product.isActive) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Ürün bulunamadı veya pasif.' });
+    }
+
+    const groups = await this.prisma.customerGroupMember.findMany({
+      where: { orgId: order.customerOrgId },
+      select: { groupId: true },
+    });
+    const price = await this.prices.resolveOne(
+      variant.id,
+      order.customerOrgId,
+      groups.map((g) => g.groupId),
+      input.qty,
+    );
+    const unit = D(price.unitPrice);
+    const lineTotal = unit.mul(input.qty).toDecimalPlaces(2);
+    const source =
+      actingRole === 'sales_staff'
+        ? 'sales'
+        : actingRole === 'production_staff'
+          ? 'production'
+          : actingRole === 'shipping_staff'
+            ? 'shipping'
+            : 'system';
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.orderLine.create({
+        data: {
+          orderId: order.id,
+          itemType: 'product',
+          variantId: variant.id,
+          nameSnapshot: variant.name,
+          qty: input.qty,
+          uomSnapshot: variant.orderUom,
+          unitPrice: unit,
+          lineTotal,
+          source,
+          addedBy: actor.id,
+        },
+      });
+      // Onaylanmış siparişte stok zaten düşüldü; yeni kalem için de rezerve et.
+      if (stockIsReserved(status)) {
+        await tx.stockMovement.create({
+          data: {
+            variantId: variant.id,
+            delta: D(input.qty).negated(),
+            reason: 'order_reserve',
+            refOrderId: order.id,
+            actorId: actor.id,
+          },
+        });
+      }
+      const subtotal = D(order.subtotal).add(lineTotal).toDecimalPlaces(2);
+      const o = await tx.order.update({
+        where: { id: order.id },
+        data: { subtotal, total: subtotal },
+        include: { lines: true, branch: { select: { name: true } } },
+      });
+      await tx.orderEvent.create({
+        data: {
+          orderId: order.id,
+          type: 'line_added',
+          actorId: actor.id,
+          actorRole: actingRole,
+          note: input.note ?? `${variant.name} × ${input.qty}`,
+        },
+      });
+      await tx.activityLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: actingRole,
+          orgId: order.customerOrgId,
+          action: 'order.add_line',
+          entityType: 'order',
+          entityId: order.id,
+          after: { variantId: variant.id, qty: input.qty, lineTotal: lineTotal.toFixed(2) },
+        },
+      });
+      await tx.outboxEvent.create({
+        data: {
+          topic: 'order.line_added',
+          payload: { orderId: order.id, keyCode: order.keyCode, name: variant.name },
+        },
+      });
+      return o;
+    });
+
+    return this.shape(updated, actor.roles);
+  }
+
   // ── Okuma ──────────────────────────────────────────────────────────────────
 
   async getOrder(orderRef: string, actor: OrderActor) {
@@ -345,7 +463,8 @@ export class OrderService {
       where,
       include: {
         lines: true,
-        branch: { select: { name: true } },
+        branch: { select: { name: true, address: true, phone: true } },
+        customerOrg: { select: { name: true, phone: true } },
         events: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -354,6 +473,10 @@ export class OrderService {
     }
     return {
       ...this.shape(order, actor.roles),
+      customerName: order.customerOrg.name,
+      customerPhone: order.customerOrg.phone,
+      branchAddress: order.branch.address,
+      branchPhone: order.branch.phone,
       events: order.events.map((e) => ({
         type: e.type,
         fromStatus: e.fromStatus,
@@ -388,6 +511,7 @@ export class OrderService {
       ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       include: {
         branch: { select: { name: true } },
+        customerOrg: { select: { name: true } },
         _count: { select: { lines: true } },
       },
     });
@@ -397,6 +521,7 @@ export class OrderService {
       keyCode: o.keyCode,
       status: o.status,
       branchName: o.branch.name,
+      customerName: o.customerOrg.name,
       lineCount: o._count.lines,
       total: o.total.toFixed(2),
       currency: o.currency,

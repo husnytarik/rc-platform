@@ -1,5 +1,6 @@
 import { ORDER_STATUS_LABELS_TR, ORDER_STATUS_META, type OrderStatus } from '@rc/shared';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { useRouter, type Href } from 'expo-router';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -8,7 +9,8 @@ function formatDate(d: string | Date): string {
 }
 
 /** Sipariş listesi — kapsam (kendi siparişleri / tümü) sunucuda role göre belirlenir. */
-export function OrdersListScreen() {
+export function OrdersListScreen({ basePath }: { basePath: string }) {
+  const router = useRouter();
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     trpc.orders.list.useInfiniteQuery(
       { limit: 20 },
@@ -41,7 +43,10 @@ export function OrdersListScreen() {
       renderItem={({ item }) => {
         const meta = ORDER_STATUS_META[item.status as OrderStatus];
         return (
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push(`${basePath}/${item.id}` as Href)}
+          >
             <View style={styles.cardTop}>
               <Text style={styles.cardTitle}>{item.keyCode}</Text>
               <View style={[styles.badge, { borderColor: meta.color }]}>
@@ -52,7 +57,7 @@ export function OrdersListScreen() {
               </View>
             </View>
             <Text style={styles.cardMeta}>
-              {item.branchName} · {item.lineCount} kalem
+              {item.customerName} · {item.branchName} · {item.lineCount} kalem
             </Text>
             <View style={styles.cardBottom}>
               <Text style={styles.cardTotal}>
@@ -60,7 +65,7 @@ export function OrdersListScreen() {
               </Text>
               <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         );
       }}
     />

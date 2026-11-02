@@ -1,5 +1,5 @@
 import { OrdersListScreen } from '@/components/OrdersListScreen';
 
 export default function CustomerSiparislerimScreen() {
-  return <OrdersListScreen />;
+  return <OrdersListScreen basePath="/customer/siparislerim" />;
 }

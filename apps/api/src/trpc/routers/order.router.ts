@@ -64,6 +64,23 @@ export function makeOrderRouter(orders: OrderService) {
       .input(z.object({ order: orderRef }))
       .query(({ input, ctx }) => orders.getOrder(input.order, ctx.user)),
 
+    addLine: capabilityProcedure('order.add_line')
+      .input(
+        z.object({
+          order: orderRef,
+          variantId: z.string().uuid(),
+          qty: z.number().positive().max(1_000_000),
+          note: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) =>
+        orders.addLine(
+          input.order,
+          { variantId: input.variantId, qty: input.qty, note: input.note },
+          ctx.user,
+        ),
+      ),
+
     transition: capabilityAnyProcedure(transitionCaps)
       .input(transitionInput)
       .mutation(({ input, ctx }) =>
