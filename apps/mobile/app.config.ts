@@ -40,7 +40,8 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.roasteryclub.app',
     supportsTablet: true,
-    buildNumber: '3',
+    // CI'da GitHub çalıştırma numarası verilir (her build'de artar → "duplicate build" olmaz)
+    buildNumber: process.env.IOS_BUILD_NUMBER ?? '3',
     usesAppleSignIn: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
