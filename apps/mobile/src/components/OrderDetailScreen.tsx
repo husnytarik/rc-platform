@@ -1,11 +1,13 @@
 import {
   MAIN_LINE,
+  isTerminal,
   ORDER_STATUS_LABELS_TR,
   ORDER_STATUS_META,
   ROLE_LABELS_TR,
   type OrderStatus,
   type Role,
 } from '@rc/shared';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +20,8 @@ import {
   View,
 } from 'react-native';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/providers/auth-context';
+import { AddLineModal } from './AddLineModal';
 import { colors, radius, spacing } from '@/theme';
 
 function errText(e: unknown, fallback: string): string {
@@ -39,6 +43,8 @@ const DESTRUCTIVE: readonly OrderStatus[] = ['cancelled', 'delivery_issue'];
 /** Sipariş detayı: durum çizelgesi, kalemler, teslimat bilgisi ve role göre sıradaki adımlar. */
 export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
   const utils = trpc.useUtils();
+  const { can } = useAuth();
+  const [adding, setAdding] = useState(false);
   const q = trpc.orders.get.useQuery({ order: orderRef });
 
   const transition = trpc.orders.transition.useMutation({
@@ -161,6 +167,11 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             <Text style={styles.value}>{l.lineTotal}</Text>
           </View>
         ))}
+        {can('order.add_line') && !isTerminal(status) && (
+          <TouchableOpacity onPress={() => setAdding(true)}>
+            <Text style={styles.link}>+ Kalem ekle</Text>
+          </TouchableOpacity>
+        )}
         <View style={[styles.lineRow, styles.totalRow]}>
           <Text style={styles.value}>Toplam</Text>
           <Text style={styles.total}>
@@ -218,6 +229,16 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
           </View>
         ))}
       </View>
+      <AddLineModal
+        orderRef={o.id}
+        visible={adding}
+        onClose={() => setAdding(false)}
+        onAdded={() => {
+          setAdding(false);
+          void utils.orders.get.invalidate({ order: orderRef });
+          void utils.orders.list.invalidate();
+        }}
+      />
     </ScrollView>
   );
 }
