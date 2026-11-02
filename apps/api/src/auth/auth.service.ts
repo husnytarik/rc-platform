@@ -91,7 +91,13 @@ export class AuthService {
     if (existing) throw new BadRequestException('Zaten bekleyen bir başvurunuz var.');
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: userId }, data: { phone: e164 } });
+      // users.phone benzersiz. Numara başka bir hesapta kayıtlıysa (örn. aynı kişinin
+      // farklı bir girişi) başvuruyu yine kabul ederiz: numara başvuruda duruyor ve
+      // yönetici telefonla doğrularken çakışmayı görür.
+      const owner = await tx.user.findUnique({ where: { phone: e164 }, select: { id: true } });
+      if (!owner || owner.id === userId) {
+        await tx.user.update({ where: { id: userId }, data: { phone: e164 } });
+      }
       await tx.membershipRequest.create({
         data: {
           userId,
