@@ -83,8 +83,6 @@ export function makeOrderRouter(orders: OrderService) {
 
     transition: capabilityAnyProcedure(transitionCaps)
       .input(transitionInput)
-      .mutation(({ input, ctx }) =>
-        orders.transition(input.order, input.to, ctx.user, input.note),
-      ),
+      .mutation(({ input, ctx }) => orders.transition(input.order, input.to, ctx.user, input.note)),
   });
 }

@@ -15,7 +15,10 @@ const overrideQueryInput = z.object({ productId: z.string().uuid() });
 
 const adjustInput = z.object({
   variantId: z.string().uuid(),
-  delta: z.number().finite().refine((n) => n !== 0, 'Miktar sıfır olamaz.'),
+  delta: z
+    .number()
+    .finite()
+    .refine((n) => n !== 0, 'Miktar sıfır olamaz.'),
   reason: z.enum(MANUAL_REASONS),
   note: z.string().max(500).optional(),
 });

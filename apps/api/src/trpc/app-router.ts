@@ -3,6 +3,7 @@ import type { CatalogService } from '../catalog/catalog.service';
 import type { StockService } from '../catalog/stock.service';
 import type { AnnouncementService } from '../engage/announcement.service';
 import type { NotificationService } from '../engage/notification.service';
+import type { ReportService } from '../report/report.service';
 import type { TicketService } from '../engage/ticket.service';
 import type { CustomerService } from '../customer/customer.service';
 import type { MembershipService } from '../membership/membership.service';
@@ -11,6 +12,7 @@ import type { ServicesService } from '../services/services.service';
 import { makeAuthRouter } from './routers/auth.router';
 import { makeAnnouncementRouter } from './routers/announcement.router';
 import { makeNotificationRouter } from './routers/notification.router';
+import { makeReportRouter } from './routers/report.router';
 import { makeTicketRouter } from './routers/ticket.router';
 import { makeCatalogRouter } from './routers/catalog.router';
 import { makeCustomerRouter } from './routers/customer.router';
@@ -31,6 +33,7 @@ interface RouterDeps {
   announcements: AnnouncementService;
   tickets: TicketService;
   notifications: NotificationService;
+  reports: ReportService;
 }
 
 /**
@@ -49,6 +52,7 @@ export function makeAppRouter(deps: RouterDeps) {
     announcement: makeAnnouncementRouter(deps.announcements),
     ticket: makeTicketRouter(deps.tickets),
     notification: makeNotificationRouter(deps.notifications),
+    report: makeReportRouter(deps.reports),
   });
 }
 

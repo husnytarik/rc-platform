@@ -9,6 +9,7 @@ import { NotificationService } from '../engage/notification.service';
 import { TicketService } from '../engage/ticket.service';
 import { MembershipService } from '../membership/membership.service';
 import { OrderService } from '../orders/order.service';
+import { ReportService } from '../report/report.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServicesService } from '../services/services.service';
 import { makeAppRouter, type AppRouter } from './app-router';
@@ -36,6 +37,7 @@ export class TrpcService {
     announcements: AnnouncementService,
     tickets: TicketService,
     notifications: NotificationService,
+    reports: ReportService,
   ) {
     this.appRouter = makeAppRouter({
       auth,
@@ -48,6 +50,7 @@ export class TrpcService {
       announcements,
       tickets,
       notifications,
+      reports,
     });
     this.createContext = makeCreateContext({ tokens, prisma });
   }

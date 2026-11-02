@@ -2,7 +2,11 @@ import { z } from 'zod';
 import type { TicketService } from '../../engage/ticket.service';
 import { capabilityProcedure, router } from '../trpc';
 
-const ref = z.string().min(1).max(40).describe('Talep id (uuid) veya anahtar kod (DST-2026-000045)');
+const ref = z
+  .string()
+  .min(1)
+  .max(40)
+  .describe('Talep id (uuid) veya anahtar kod (DST-2026-000045)');
 const statusEnum = z.enum(['open', 'pending_staff', 'pending_customer', 'resolved', 'closed']);
 
 export function makeTicketRouter(tickets: TicketService) {
@@ -18,7 +22,14 @@ export function makeTicketRouter(tickets: TicketService) {
       .mutation(({ input, ctx }) => tickets.create(input, ctx.user)),
 
     list: capabilityProcedure('ticket.handle')
-      .input(z.object({ status: statusEnum.optional(), limit: z.number().int().min(1).max(100).optional() }).default({}))
+      .input(
+        z
+          .object({
+            status: statusEnum.optional(),
+            limit: z.number().int().min(1).max(100).optional(),
+          })
+          .default({}),
+      )
       .query(({ input, ctx }) => tickets.list(input, ctx.user)),
 
     get: capabilityProcedure('ticket.handle')

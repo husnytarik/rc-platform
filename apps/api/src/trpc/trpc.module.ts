@@ -5,6 +5,7 @@ import { CustomerModule } from '../customer/customer.module';
 import { EngageModule } from '../engage/engage.module';
 import { MembershipModule } from '../membership/membership.module';
 import { OrderModule } from '../orders/order.module';
+import { ReportModule } from '../report/report.module';
 import { ServicesModule } from '../services/services.module';
 import { TrpcService } from './trpc.service';
 
@@ -21,6 +22,7 @@ import { TrpcService } from './trpc.service';
     OrderModule,
     ServicesModule,
     EngageModule,
+    ReportModule,
   ],
   providers: [TrpcService],
   exports: [TrpcService],

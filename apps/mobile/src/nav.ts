@@ -23,4 +23,5 @@ export const PRODUCER_NAV: ProducerNavItem[] = [
   { key: 'musteriler', label: 'Müşteriler', hint: 'Firmalar, şubeler, kullanıcılar', href: '/producer/musteriler', cap: 'customer.manage', primary: false },
   { key: 'servisler', label: 'Servisler', hint: 'Servis kataloğu ve talepler', href: '/producer/servisler', cap: 'service.manage', primary: false },
   { key: 'duyurular', label: 'Duyurular', hint: 'Müşterilere duyuru ve bildirim gönder', href: '/producer/duyurular', cap: 'announcement.manage', primary: false },
+  { key: 'raporlar', label: 'Raporlar', hint: 'Ciro, sipariş ve müşteri özetleri', href: '/producer/raporlar', cap: 'report.view', primary: false },
 ];

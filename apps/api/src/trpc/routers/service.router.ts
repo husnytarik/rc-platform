@@ -3,9 +3,10 @@ import { z } from 'zod';
 import type { ServicesService } from '../../services/services.service';
 import { capabilityAnyProcedure, capabilityProcedure, router } from '../trpc';
 
-const statusEnum = z.enum(
-  [...SERVICE_REQUEST_STATUSES] as [ServiceRequestStatus, ...ServiceRequestStatus[]],
-);
+const statusEnum = z.enum([...SERVICE_REQUEST_STATUSES] as [
+  ServiceRequestStatus,
+  ...ServiceRequestStatus[],
+]);
 
 const createInput = z.object({
   code: z.string().min(1).max(60),
