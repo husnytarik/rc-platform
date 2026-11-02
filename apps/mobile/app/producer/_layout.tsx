@@ -1,9 +1,10 @@
 import { isProducerRole } from '@rc/shared';
 import { Redirect, Tabs, router } from 'expo-router';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
 import { PRODUCER_NAV } from '@/nav';
 import { useAuth } from '@/providers/auth-context';
 import { colors } from '@/theme';
+import { StartupLoading } from '@/components/StartupLoading';
 
 function AccountHeaderButton() {
   return (
@@ -16,13 +17,7 @@ function AccountHeaderButton() {
 export default function ProducerLayout() {
   const { status, identity, can } = useAuth();
 
-  if (status === 'loading') {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    );
-  }
+  if (status === 'loading') return <StartupLoading />;
   if (status !== 'authenticated' || !identity || identity.pending) return <Redirect href="/" />;
   if (!identity.roles.some(isProducerRole)) return <Redirect href="/" />;
 

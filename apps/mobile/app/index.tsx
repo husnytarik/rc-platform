@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/providers/auth-context';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
+import { StartupLoading } from '@/components/StartupLoading';
 
 function errText(e: unknown, fallback: string): string {
   const m = (e as { message?: string } | undefined)?.message;
@@ -142,13 +143,7 @@ export default function HomeScreen() {
   const { status, identity, logout } = useAuth();
   const utils = trpc.useUtils();
 
-  if (status === 'loading') {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    );
-  }
+  if (status === 'loading') return <StartupLoading />;
   if (status === 'anonymous' || !identity) return <Redirect href="/login" />;
 
   if (identity.pending && !identity.hasPendingRequest) {
