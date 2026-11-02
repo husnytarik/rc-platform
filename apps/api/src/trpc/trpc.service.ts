@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
+import { CatalogSheetService } from '../catalog/catalog-sheet.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { StockService } from '../catalog/stock.service';
 import { CustomerService } from '../customer/customer.service';
@@ -38,6 +39,7 @@ export class TrpcService {
     tickets: TicketService,
     notifications: NotificationService,
     reports: ReportService,
+    sheet: CatalogSheetService,
   ) {
     this.appRouter = makeAppRouter({
       auth,
@@ -51,6 +53,7 @@ export class TrpcService {
       tickets,
       notifications,
       reports,
+      sheet,
     });
     this.createContext = makeCreateContext({ tokens, prisma });
   }
