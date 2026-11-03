@@ -6,7 +6,15 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/providers/auth-context';
 import { trpc } from '@/lib/trpc';
@@ -27,6 +35,9 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const oauthLogin = trpc.auth.oauthLogin.useMutation();
+  const demoLogin = trpc.auth.demoLogin.useMutation();
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoCode, setDemoCode] = useState('');
 
   useEffect(() => {
     if (Platform.OS === 'ios') {
@@ -84,7 +95,20 @@ export default function LoginScreen() {
     }
   };
 
-  const busy = oauthLogin.isPending;
+  const submitDemo = (): void => {
+    setError(null);
+    demoLogin.mutate(
+      { code: demoCode.trim() },
+      {
+        onSuccess: (session) => {
+          void login({ accessToken: session.accessToken, refreshToken: session.refreshToken });
+        },
+        onError: (e: unknown) => setError(errText(e, 'Demo girişi yapılamadı.')),
+      },
+    );
+  };
+
+  const busy = oauthLogin.isPending || demoLogin.isPending;
 
   return (
     <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
@@ -121,6 +145,32 @@ export default function LoginScreen() {
             />
           )}
         </View>
+
+        {demoOpen ? (
+          <View style={styles.demoBox}>
+            <TextInput
+              style={styles.demoInput}
+              value={demoCode}
+              onChangeText={setDemoCode}
+              placeholder="Demo kodu"
+              placeholderTextColor={colors.inkFaint}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+            />
+            <TouchableOpacity
+              style={[styles.demoButton, (busy || demoCode.trim().length < 4) && styles.demoDisabled]}
+              disabled={busy || demoCode.trim().length < 4}
+              onPress={submitDemo}
+            >
+              <Text style={styles.demoButtonText}>Demo ile gir</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => setDemoOpen(true)}>
+            <Text style={styles.demoLink}>Demo girişi</Text>
+          </TouchableOpacity>
+        )}
 
         {busy && (
           <View style={styles.busyRow}>
@@ -177,6 +227,32 @@ const styles = StyleSheet.create({
   buttons: { gap: spacing(3), alignItems: 'center' },
   googleButton: { width: '100%', height: 52 },
   appleButton: { width: '100%', height: 52 },
+  demoLink: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: spacing(5),
+    textDecorationLine: 'underline',
+  },
+  demoBox: { gap: spacing(2), marginTop: spacing(5) },
+  demoInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2.5),
+    fontSize: 15,
+    color: colors.ink,
+  },
+  demoButton: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(3),
+    alignItems: 'center',
+  },
+  demoButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  demoDisabled: { opacity: 0.5 },
   busyRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { toE164TR } from '@rc/shared';
 import type { AuthProvider } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,8 +30,16 @@ export interface SessionResult {
   user: { id: string; phone: string | null; fullName: string | null };
 }
 
+const sha = (s: string): Buffer => createHash('sha256').update(s).digest();
+
+/** Demo girişi deneme sınırı: IP başına 15 dakikada 8 yanlış deneme. */
+const DEMO_WINDOW_MS = 15 * 60 * 1000;
+const DEMO_MAX_FAILS = 8;
+
 @Injectable()
 export class AuthService {
+  private readonly demoFails = new Map<string, { n: number; since: number }>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly oauth: OauthService,
@@ -72,6 +81,73 @@ export class AuthService {
       refreshToken: pair.refreshToken,
       refreshExpiresAt: pair.refreshExpiresAt.toISOString(),
       state,
+      user: { id: user.id, phone: user.phone, fullName: user.fullName },
+    };
+  }
+
+  /**
+   * Gizli kodla demo girişi (App Store incelemesi ve test için). Yalnızca Render'da
+   * DEMO_ADMIN_CODE / DEMO_CUSTOMER_CODE tanımlıysa açıktır; tanımsızsa uç nokta yok sayılır.
+   * Kod ortam değişkenindedir, repoda değil.
+   */
+  async demoLogin(code: string, ctx: Ctx): Promise<SessionResult> {
+    const adminCode = process.env.DEMO_ADMIN_CODE;
+    const customerCode = process.env.DEMO_CUSTOMER_CODE;
+    if (!adminCode && !customerCode) throw new NotFoundException('Demo giriş kapalı.');
+
+    const key = ctx.ip ?? 'unknown';
+    const now = Date.now();
+    const f = this.demoFails.get(key);
+    if (f && now - f.since < DEMO_WINDOW_MS && f.n >= DEMO_MAX_FAILS) {
+      throw new BadRequestException('Çok fazla deneme. Biraz sonra tekrar deneyin.');
+    }
+
+    const matches = (expected?: string): boolean =>
+      !!expected && timingSafeEqual(sha(code), sha(expected));
+    const kind = matches(adminCode) ? 'admin' : matches(customerCode) ? 'customer' : null;
+    if (!kind) {
+      const fresh = !f || now - f.since >= DEMO_WINDOW_MS;
+      this.demoFails.set(key, { n: fresh ? 1 : f.n + 1, since: fresh ? now : f.since });
+      throw new BadRequestException('Demo kodu hatalı.');
+    }
+    this.demoFails.delete(key);
+
+    const user = await this.prisma.user.upsert({
+      where: {
+        provider_providerUserId: { provider: 'google', providerUserId: `demo-${kind}` },
+      },
+      update: { lastLoginAt: new Date() },
+      create: {
+        provider: 'google',
+        providerUserId: `demo-${kind}`,
+        fullName: kind === 'admin' ? 'Demo Yönetici' : 'Demo Müşteri',
+        lastLoginAt: new Date(),
+      },
+    });
+
+    const org =
+      kind === 'admin'
+        ? await this.prisma.organization.findUnique({ where: { slug: 'roasteryclub' } })
+        : await this.prisma.organization.upsert({
+            where: { slug: 'demo-kafe' },
+            update: {},
+            create: { type: 'customer', name: 'Demo Kafe', slug: 'demo-kafe' },
+          });
+    if (!org) throw new BadRequestException('Demo hesabı için kurum bulunamadı.');
+
+    const role = kind === 'admin' ? 'producer_admin' : 'customer_admin';
+    await this.prisma.membership.upsert({
+      where: { userId_orgId_role: { userId: user.id, orgId: org.id, role } },
+      update: { status: 'active' },
+      create: { userId: user.id, orgId: org.id, role, status: 'active' },
+    });
+
+    const pair = await this.tokens.issuePair(user.id, ctx);
+    return {
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+      refreshExpiresAt: pair.refreshExpiresAt.toISOString(),
+      state: 'active',
       user: { id: user.id, phone: user.phone, fullName: user.fullName },
     };
   }

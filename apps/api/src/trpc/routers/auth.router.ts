@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { AuthService } from '../../auth/auth.service';
 import { membershipRequestSchema, oauthLoginSchema, refreshSchema } from '../../auth/auth.schemas';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
@@ -9,6 +10,11 @@ export function makeAuthRouter(auth: AuthService) {
       .mutation(({ input, ctx }) =>
         auth.oauthLogin(input.provider, input.idToken, ctx.reqInfo, input.fullName),
       ),
+
+    /** Gizli kodla demo girişi; sunucuda kod tanımlı değilse kapalıdır. */
+    demoLogin: publicProcedure
+      .input(z.object({ code: z.string().min(4).max(100) }))
+      .mutation(({ input, ctx }) => auth.demoLogin(input.code, ctx.reqInfo)),
 
     /** Google/Apple ile ilk giriş sonrası, üyeliği bekleyen kullanıcının kayıt formu. */
     submitMembershipRequest: protectedProcedure
