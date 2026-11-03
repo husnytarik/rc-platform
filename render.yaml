@@ -34,5 +34,9 @@ services:
         sync: false
       - key: APPLE_BUNDLE_ID
         value: com.roasteryclub.app
+      - key: DEMO_ADMIN_CODE
+        sync: false
+      - key: DEMO_CUSTOMER_CODE
+        sync: false
       - key: ADMIN_URL
         sync: false
