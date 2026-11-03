@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 /**
  * Oturum jetonlarının cihazda saklanması (Keychain/Keystore, expo-secure-store
@@ -18,13 +19,23 @@ export interface StoredSession {
 
 let memo: StoredSession | null | undefined; // undefined = henüz hydrate edilmedi
 
+/** SecureStore webde yok; web sürümünde tarayıcının localStorage'ı kullanılır. */
+const kv =
+  Platform.OS === 'web'
+    ? {
+        getItemAsync: async (k: string) => globalThis.localStorage?.getItem(k) ?? null,
+        setItemAsync: async (k: string, v: string) => globalThis.localStorage?.setItem(k, v),
+        deleteItemAsync: async (k: string) => globalThis.localStorage?.removeItem(k),
+      }
+    : SecureStore;
+
 export const authStore = {
   /** Açılışta bir kez çağrılır — SecureStore'dan belleğe okur. */
   async hydrate(): Promise<StoredSession | null> {
     try {
       const [accessToken, refreshToken] = await Promise.all([
-        SecureStore.getItemAsync(ACCESS_KEY),
-        SecureStore.getItemAsync(REFRESH_KEY),
+        kv.getItemAsync(ACCESS_KEY),
+        kv.getItemAsync(REFRESH_KEY),
       ]);
       memo = accessToken && refreshToken ? { accessToken, refreshToken } : null;
     } catch {
@@ -39,15 +50,15 @@ export const authStore = {
   async set(session: StoredSession): Promise<void> {
     memo = session;
     await Promise.all([
-      SecureStore.setItemAsync(ACCESS_KEY, session.accessToken),
-      SecureStore.setItemAsync(REFRESH_KEY, session.refreshToken),
+      kv.setItemAsync(ACCESS_KEY, session.accessToken),
+      kv.setItemAsync(REFRESH_KEY, session.refreshToken),
     ]);
   },
   async clear(): Promise<void> {
     memo = null;
     await Promise.all([
-      SecureStore.deleteItemAsync(ACCESS_KEY),
-      SecureStore.deleteItemAsync(REFRESH_KEY),
+      kv.deleteItemAsync(ACCESS_KEY),
+      kv.deleteItemAsync(REFRESH_KEY),
     ]);
   },
 };

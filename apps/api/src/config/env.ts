@@ -9,6 +9,7 @@ const schema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3001),
   API_URL: z.string().url().default('http://localhost:3001'),
   ADMIN_URL: z.string().url().default('http://localhost:3000'),
+  WEB_URL: z.string().url().optional(),
 
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().min(1).optional(),
@@ -32,7 +33,9 @@ export type Env = z.infer<typeof schema>;
 export function validateEnv(raw: Record<string, unknown>): Env {
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
+    const issues = parsed.error.issues
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
     throw new Error(`Ortam değişkenleri geçersiz:\n${issues}`);
   }
   return parsed.data;

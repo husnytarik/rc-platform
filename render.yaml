@@ -38,5 +38,7 @@ services:
         sync: false
       - key: DEMO_CUSTOMER_CODE
         sync: false
+      - key: WEB_URL
+        sync: false
       - key: ADMIN_URL
         sync: false

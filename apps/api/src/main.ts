@@ -36,7 +36,10 @@ async function bootstrap(): Promise<void> {
   });
 
   app.enableCors({
-    origin: [process.env.ADMIN_URL ?? 'http://localhost:3000'],
+    // Eski admin paneli + mobil uygulamanın web sürümü (WEB_URL, isteğe bağlı).
+    origin: [process.env.ADMIN_URL ?? 'http://localhost:3000', process.env.WEB_URL].filter(
+      (u): u is string => !!u,
+    ),
     credentials: true,
   });
 

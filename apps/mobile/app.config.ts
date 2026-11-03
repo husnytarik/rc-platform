@@ -60,6 +60,8 @@ const config: ExpoConfig = {
 
   web: {
     favicon: './assets/favicon.png',
+    bundler: 'metro',
+    output: 'single',
   },
 
   updates: {
@@ -76,7 +78,11 @@ const config: ExpoConfig = {
     ...(googleSigninPlugin ? [googleSigninPlugin] : []),
   ],
 
-  experiments: { typedRoutes: true },
+  // WEB_BASE_URL: GitHub Pages alt yolu (örn. /rc-platform). Yalnız web derlemesini etkiler.
+  experiments: {
+    typedRoutes: true,
+    ...(process.env.WEB_BASE_URL ? { baseUrl: process.env.WEB_BASE_URL } : {}),
+  },
 
   extra: {
     eas: { projectId: '713b0b59-4130-4d31-9674-52eb86e2a04f' },
