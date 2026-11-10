@@ -1,111 +1,93 @@
-# Kurulum durumu ve sonraki adımlar
+# Kurulum, çalıştırma ve durum
 
-Bu belge "nerede kaldık"ı tutar. Mimari kararlar için `MIMARI.md`.
+Bu belge "sistem şu an nasıl çalışıyor ve nasıl ayağa kaldırılır"ı tutar. Mimari kararlar için `MIMARI.md`, ürün kapsamı için `SPEC.md`.
 
-## Tamamlanan — Faz 0/1 iskeleti
+> Son güncelleme: 2026-11-10. Uygulama daha önce Firebase üzerinde çalışıyordu; bu repo onun yeniden yazımıdır (Postgres + NestJS/tRPC + tek Expo uygulaması).
 
-- **Monorepo** (`rc-platform`): pnpm workspace + Turborepo.
-  - `packages/shared` — roller, RBAC yetenek matrisi, sipariş durum makinesi, TR telefon normalizasyonu. Derleniyor ✅
-  - `apps/api` — NestJS 11 (Fastify 5) + Prisma 6. Derleniyor + typecheck temiz ✅
-- **Veri modeli** — `apps/api/prisma/schema.prisma`: organizasyon/şube/kullanıcı/üyelik, OTP + rotating refresh token, katalog + varyant, fiyat listeleri (default/grup/müşteri), görünürlük kuralları, stok defteri (append-only) + gösterim override, sipariş + kalem + olay defteri, destek, hizmet/randevu, duyuru, bildirim + teslim, import job, `activity_log`, `outbox`.
-- **Kimlik / OTP** — `apps/api/src/auth/`:
-  - `POST /auth/otp/request` — kod üret + SMS (dev'de log'a yazılır), saatlik limit + cooldown
-  - `POST /auth/otp/verify` — kod doğrula (argon2 hash, deneme limiti); yeni numara → kullanıcı + `membership_request` (yönetici onayına düşer); sonuç `state: active | pending`
-  - `POST /auth/refresh` — rotating refresh, aile bazlı; yeniden-kullanım tespitinde aile iptali
-  - `POST /auth/logout` — refresh iptal
-- **Güvenlik/gözlem tabanı** — env açılışta zod ile doğrulanır (eksikse başlamaz), helmet, global rate-limit, `activity_log`, girdi doğrulama zod + `ZodExceptionFilter` (400 + alan bazlı `issues`), `/health` DB kontrolü.
-- Kök `.env` üretildi; JWT secret'ları hazır. Sırlar `.gitignore`'da; commit edilmez.
+## Canlı bileşenler
 
-## Neon bağlandı — çalışan sistem ✅
+| Parça | Nerede | Not |
+|---|---|---|
+| API (NestJS + Fastify + tRPC) | Render — `https://rc-api-tird.onrender.com` | `render.yaml` ile tanımlı; ücretsiz planda boşta uyur, ilk istek ~30-60 sn sürebilir |
+| Veritabanı | Neon Postgres (Frankfurt) | Prisma migration'ları `prisma migrate deploy` ile uygulanır |
+| Mobil uygulama | TestFlight (iOS) · `apps/mobile` | Bundle ID `com.roasteryclub.app`, ASC Apple ID `6752270952` |
+| OTA güncelleme | EAS Update, kanal `production` | `runtimeVersion` politikası `sdkVersion`; yalnızca JS değişiklikleri |
+| Web paneli | GitHub Pages — `https://husnytarik.github.io/rc-platform/` | Aynı Expo uygulamasının web derlemesi; girişi yalnızca demo kodu |
+| `apps/admin` (Next.js) | — | **Donduruldu.** Tüm yeni iş `apps/mobile`'da, role göre ekranlarla |
 
-- Neon projesi `neondb` (Frankfurt / eu-central-1), pooled → `DATABASE_URL`, direct → `DIRECT_URL`.
-- İlk migration (`20260908054435_init`) Neon'a uygulandı.
-- Seed çalıştı: üretici org `roasteryclub` + varsayılan fiyat listesi + yönetici (`+905000000000`).
-- API ayakta: `GET /health` → `{"ok":true,"db":true}`.
-- Uçtan uca doğrulandı:
-  - `POST /auth/otp/request` → `{expiresInSec:300}`, kod dev'de log'a yazılıyor
-  - `POST /auth/otp/verify` → `accessToken` + `refreshToken` + `state:active`
-  - `POST /auth/refresh` → rotasyon; eski token tekrar kullanılınca **aile iptali** (401)
-  - Hatalı kod → 400; geçersiz girdi → 400 `ValidationError`
-- Komutlar: `pnpm --filter @rc/api dev` (API), `pnpm db:studio` (veri tarayıcı).
+## Kimlik doğrulama (güncel)
 
-## Senin yapman gerekenler
+- **Yalnızca Google ve Apple ile giriş.** Telefon/OTP/SMS yok.
+- Kullanıcı kimliği `(provider, providerUserId)` çiftidir; aynı kişi Google ve Apple ile ayrı iki kullanıcı olur (e-posta ile birleştirme henüz yok).
+- Yeni kullanıcı `pending` durumundadır ve kayıt formunu gönderir (`auth.submitMembershipRequest`; telefon E.164, SMS ile doğrulanmaz). Üretici tarafı **Başvurular** sekmesinden onaylar (`membership.review`) → firma + şube + üyelik açılır.
+- **Demo girişi:** `auth.demoLogin`, yalnızca Render'da `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa açıktır. Hız sınırlı, sabit zamanlı karşılaştırma. Admin kodu gerçek `producer_admin` verisine erişir; müşteri kodu "Demo Kafe" firmasına girer. Apple incelemesine **yalnızca müşteri kodu** verilir.
+- Bilinen eksik: ilk üretici yöneticisi üyeliği elle (seed/DB) açılıyor; `ADMIN_EMAILS` ile otomatik yönetici ve Google↔Apple hesap birleştirme önerildi, yapılmadı.
 
-1. Yeni GitHub repo (`rc-platform`, private) açıp bağlamak istersen: repo URL'ini ver, remote ekleyip push ederim. (Zorunlu değil, yerelde ilerliyoruz.)
-2. SMS/WhatsApp sağlayıcı — sonra seçilecek. Şimdilik `OTP_DEV_ECHO=true` ve OTP kodu log'a yazılıyor; sağlayıcı seçilince `SmsService` arkasına takılır, `.env`'e kimlik bilgileri eklenip `OTP_DEV_ECHO=false` yapılır.
+## Ortam değişkenleri
 
-## tRPC katmanı — bağlandı ✅
+Şablon: kökteki `.env.example` (API) ve `apps/mobile/.env.example`. API açılışta zod ile doğrular; eksik/yanlışsa başlamaz.
 
-- `apps/api/src/trpc/`: `initTRPC` + superjson, `/trpc` prefix'inde Fastify eklentisi.
-- `trpc-context.ts` — her istekte `Authorization: Bearer` → access token doğrula → kullanıcı + aktif üyelikler + rol seti. Token yoksa `user: null`.
-- `trpc.ts` — `publicProcedure` / `protectedProcedure` (oturum şart) / `capabilityProcedure(cap)` (aktif üyelik + RBAC matrisi `canAny`).
-- `routers/auth.router.ts` — `auth.requestOtp` · `auth.verifyOtp` · `auth.refresh` · `auth.logout` · `auth.me` (oturum sahibinin profili + rolleri). REST `AuthController` aynı zod sözleşmesini (`auth.schemas.ts`) paylaşarak duruyor; istemciler tRPC'ye geçince kaldırılacak.
-- `AppRouter` tipi export ediliyor — admin paneli + mobil uçtan uca tip güvenliği için import eder.
-- Hata biçimi: stack trace yanıttan çıkarılır (log'da kalır); girdi hatası `data.zod.fieldErrors` ile döner.
-- Doğrulandı: OTP akışı tRPC üzerinden çalışıyor, `auth.me` token'lı → `roles:["producer_admin"]`, token'sız → 401.
+API (Render panelinde `sync: false` olanlar elle girilir):
 
-## Katalog + fiyat + ölçü birimi — bağlandı ✅
+| Değişken | Açıklama |
+|---|---|
+| `DATABASE_URL` / `DIRECT_URL` | Neon pooled / direct bağlantı |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | ≥16 karakter |
+| `GOOGLE_MOBILE_CLIENT_ID` / `GOOGLE_ADMIN_CLIENT_ID` | Google token `aud` doğrulaması |
+| `APPLE_BUNDLE_ID` | `com.roasteryclub.app` |
+| `ADMIN_URL` | CORS için tek URL |
+| `WEB_URL` | İsteğe bağlı; web derlemesinin origin'i (`https://husnytarik.github.io`) |
+| `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` | İsteğe bağlı; demo girişi. Boşsa demo kapalıdır |
+| `EXPO_ACCESS_TOKEN` | İsteğe bağlı; Expo Push |
+| `SENTRY_DSN` | İsteğe bağlı |
 
-- **Ölçü birimi** (`@rc/shared/uom.ts` + `Uom` enum): ürünler farklı birimlerde satılır — ağırlık (g/kg), hacim (ml/cl/L), sayı/ambalaj (adet/paket/kutu/koli/çuval). Her varyantta `orderUom` (müşteri bu birimde miktar girer, fiyat bu birim başına), `minOrderQty`, `qtyStep`, opsiyonel `contentAmount`/`contentUom` (250 g paket → gösterim/raporlama), `lowStockThreshold`. `validateQty` sayı birimlerinde tam sayı + asgari + adım katı kuralını uygular; `convertUom` yalnız aynı tür içinde çevirir. `OrderLine.qty`/`StockMovement.delta` artık `Decimal(12,3)`, `OrderLine.uomSnapshot` eklenme anını dondurur.
-- `apps/api/src/catalog/`:
-  - `price.service.ts` — fiyat **yalnız sunucuda** çözülür. Öncelik: müşteriye özel liste → müşteri grubu → varsayılan → `variant.basePrice`. İlk kademe eşleşen liste kazanır; kademe = en büyük `minQty ≤ qty`; bir üst kademe `nextTier` olarak döner.
-  - `visibility.service.ts` — `deny` kuralı gizler; özgüllük organization > customer_group > all. Üretici tarafı her şeyi görür.
-  - `stock.service.ts` — bakiye = `SUM(delta)`; müşteriye **gerçek adet sızmaz**, yalnız rozet (`in`/`low`/`out`/`preorder`/`incoming`/`closed`). `StockDisplayOverride` rozeti ezer.
-  - `catalog.service.ts` — `ctx.user`'dan görünüm bağlamı (üretici mi / hangi org / hangi gruplar) türetir, üçünü birleştirir.
-- `routers/catalog.router.ts` — `catalog.categories` · `catalog.list` (kategori/arama + cursor) · `catalog.product` (id|slug). Hepsi `capabilityProcedure('catalog.view')`.
-- Neon tohum verisiyle doğrulandı: üretici KPD-ESPRESSO'yu görür, `+905321112233` müşterisi görmez; müşteri GTM-ANTIGUA-1KG'de grup fiyatı 445, CB-KONSANTRE-1L'de özel fiyat 199 alır; rozetler out/preorder/low doğru; `available` müşteri yanıtında hep `null`; gizli ürün slug ile de çekilemiyor (`NOT_FOUND`).
-- `@rc/shared` birim testleri: `pnpm --filter @rc/shared test` → 14 test (uom).
+Mobil: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `GOOGLE_IOS_URL_SCHEME`.
 
-## Sipariş oluşturma + durum geçişi — bağlandı ✅
+## Yerelde çalıştırma
 
-- **Anahtar kod** — `model Counter` (yıl bazlı sayaç, `counters` tablosu; migration `20260908140209_orders_counter`). Sipariş oluşturma transaction'ı içinde `upsert` + `increment` ile atomik artar → `RC-2026-000001` biçiminde insan-okunur `keyCode`.
-- `apps/api/src/orders/`:
-  - `order.service.ts` — `createOrder` / `transition` / `getOrder` / `listOrders`.
-    - **createOrder** (yalnız müşteri rolleri): şube müşteriye ait + aktif mi, üyelik `branchScope` şubeyi kapsıyor mu; aynı varyant satırları birleştirilir; varyant aktif + ürün görünür (gizli değil) mi; `validateQty` (birim/asgari/adım); fiyat **sunucuda** `PriceService.resolveOne` ile çözülür; satır/ara toplam `Decimal(12,3/2)`. Tek `$transaction`: `order` + `order_line`'lar + `order_event` (`placed`) + `activity_log` + `outbox` (`order.placed`). **Stok bu aşamada düşmez.**
-    - **transition** — `TRANSITIONS` tablosunda tanımlı mı, `canTransition(from,to,role)` (producer_admin baypas) yetki verir mi. Tek `$transaction`: `decrementsStock` geçişinde (`placed→confirmed`) her ürün satırı için negatif `stock_movement` (`order_reserve`); `cancelled`'a `stockIsReserved(from)` durumundan geçişte pozitif `stock_movement` (`order_release`); `order.status` güncelle + `order_event` (`transition`) + `activity_log` + `outbox` (`order.status_changed`).
-    - **getOrder / listOrders** — `keyCode` veya uuid ile; müşteri yalnız kendi org'unun siparişlerini görür, üretici tarafı hepsini; cursor sayfalama.
-- `routers/order.router.ts` — `orders.create` (`capabilityProcedure('order.create')`) · `orders.list` · `orders.get` (`order.view.own` VEYA `order.view.all`) · `orders.transition` (`order.confirm`/`order.cancel`/`production.advance`/`shipping.advance` — herhangi biri). `trpc.ts`'e `capabilityAnyProcedure(caps)` eklendi.
-- Neon tohum verisiyle uçtan uca doğrulandı (**31/31**): `RC-2026-000001` fiyatları 445.00/199.00, toplam 6534.00; `placed`'de stok sabit; `placed→confirmed` tam sipariş miktarı kadar 2 `order_reserve` hareketi; `delivered`'a kadar zincir 7 olay, çift düşüm yok; `confirmed→cancelled` `order_release` ile bakiye geri; 6 negatif senaryo (`FORBIDDEN`/`BAD_REQUEST`) beklendiği gibi.
-- `@rc/shared` birim testleri: `pnpm --filter @rc/shared test` → 23 test (14 uom + 9 order-state).
+```bash
+pnpm install
+cp .env.example .env            # değerleri doldur
+pnpm db:generate && pnpm db:migrate
+pnpm db:seed                    # üretici org + varsayılan fiyat listesi
+pnpm --filter @rc/api dev       # API :3001
+cd apps/api && npx nest build   # mobil, API tiplerini dist'ten okur
+cd ../mobile && npx tsc --noEmit
+cd ../mobile && npx expo start  # (web için: npx expo start --web)
+```
 
-## Tasarım token'ları (`@rc/shared/theme`) — bağlandı ✅
+Mobil, `@rc/api/app-router` tiplerini derlenmiş `dist`'ten okur; API şemasını değiştirdikten sonra `nest build` çalıştırmadan mobil typecheck eskir.
 
-- `packages/shared/src/theme.ts` — framework'süz tek kaynak. `BRAND` (yeşil 50–900, 500=`#2f7d49`), `NEUTRAL` (yeşile çalan griler), `SEMANTIC` (`success/warning/danger/info`), `SPACE` · `RADIUS` · `FONT_SIZE` · `ELEVATION` · `MOTION`.
-- `brandRamp(intensity=1)` — HSL doygunluğunu 0.7–1.4 arasında ölçekler ("yoğunlaştırılabilir" yeşil). `ORDER_STATUS_META` — her `OrderStatus` için `{ tone, color, icon }` (lucide ikon adları).
-- `apps/admin/src/app/globals.css` bu token'ları CSS değişkeni olarak birebir yansıtır; açık/koyu tema `prefers-color-scheme` ile.
+## Yayın akışı
 
-## `apps/admin` (Next.js) kabuğu — bağlandı ✅
+- **JS değişikliği → OTA:** `eas update --branch production`. Uygulamayı kapatıp iki kez açmak gerekir (indir → uygula).
+- **Native değişiklik / yeni binary → iOS:** GitHub Actions "Mobil iOS build" (macOS, `eas build --local`, build numarası = run numarası) TestFlight'a gönderir. Submit adımı sık sık "Scheduled iOS submission" sonrası ~10 dk takılıp zaman aşımına uğrar; build yine de TestFlight'a ulaşır.
+- **API:** `main`'e push → Render otomatik deploy. Migration'lar `prisma migrate deploy`.
+- **Web:** GitHub Actions "web-deploy" (yalnızca elle tetiklenir) → `expo export --platform web` → Pages. Web'de Excel içe/dışa aktarım ve push çalışmaz.
+- Android: imza ve build hazırlığı sürüyor (release imza sırları izlenen dosyalardan çıkarıldı).
 
-- **Yığın:** Next 15 App Router + React 19 + tRPC v11 (`@trpc/react-query`) + React Query v5. Refine **kullanılmadı** — v4 peer'ları React 19 / RQ v5 ile uyumsuz; yerine ince "plain Next + tRPC + context" yaklaşımı.
-- **Tip köprüsü:** `apps/api` `nest build` ile `.d.ts` üretir; `apps/api/package.json` `exports` → `@rc/api/app-router`. Admin `import type { AppRouter }` ile uçtan uca tip alır (turbo `typecheck` `^build`'e bağlı).
-- `src/lib/` — `trpc.ts` (React client) · `trpc-vanilla.ts` (React dışı çağrılar) · `auth-store.ts` (localStorage aynası, `rc.admin.access`/`rc.admin.refresh`) · `session.ts` (`refreshSession` tek uçuş + `endSession`) · `identity.ts` · `format.ts` (₺ / tarih / yaş) · `nav.ts` (10 bölüm, `cap` görünürlük eşlemesi).
-- `src/providers/auth-context.tsx` — `AuthContextProvider` + `useAuth()`: `status` (`loading|authenticated|anonymous`), `identity`, `can(cap)` (`canAny` üzerinden), `login` / `logout`. `providers.tsx` içinde `authedFetch` 401'de bir kez `refreshSession()` deneyip isteği tekrarlar.
-- **Rotalar:** `/giris` (telefon + OTP iki adım) · `(panel)/` grubu `AuthGate` + `AppShell` sarmalı → `/` (genel bakış: açık sipariş sayaçları + tutar) · `/siparisler` (durum çipli sonsuz liste) · `/siparisler/[key]` (detay + `nextSteps`'ten durum geçişi butonları + olay zaman çizelgesi) · `[section]` (yetki kontrollü "yakında" ekranı) · `not-found.tsx`.
-- Portlar: admin `:3000`, API `:3001` (`ADMIN_URL` CORS). `pnpm -C apps/admin run typecheck` temiz; `/giris`, `/`, `/siparisler`, `/katalog` derleniyor; canlı API ile `verifyOtp → auth.me → orders.list` uçtan uca doğrulandı (`producer_admin`, `RC-2026-000001..3`).
+## Tamamlanan özellikler
 
-## Üyelik başvurusu inceleme — bağlandı ✅
-
-- **Sorun:** kayıt (`auth.verifyOtp` + `register`) `MembershipRequest` satırı açıyordu ama onaylayan yoktu — tüm müşteri akışlarını kilitleyen giriş kapısı.
-- **API:** `apps/api/src/membership/` — `MembershipService` (`listRequests` imleç sayfalama · `getRequest` şube/adres detayı · `approve` · `reject`). Onay tek `$transaction`'da: `Organization` (benzersiz `slug`, `type: customer`) + şube(ler) (yoksa "Merkez Şube") + `Membership` (`status: active`) + `activityLog` + `outboxEvent` (`membership.approved`). Uzak Neon gecikmesi için transaction `timeout: 20s`. Ret: `status: rejected` + zorunlu `reviewNote` + `membership.rejected` olayı.
-- **tRPC:** `membership` router'ı — `requests` / `request` / `approve` / `reject`, hepsi `capabilityProcedure('membership.review')` (rol: `producer_admin`, `sales_staff`). `app-router` / `trpc.service` / `trpc.module`'e bağlandı.
-- **Admin:** `src/nav.ts` `basvurular` → `ready`. `(panel)/basvurular/` liste (durum çipli sonsuz liste) + `[id]` detay (firma/yetkili/şubeler + rol seçimli Onayla / notlu Reddet).
-- Canlı API ile uçtan uca doğrulandı: kayıt → `pending`, admin listeler → detay → `approve` Org+şube+üyelik açar, başvuran `auth.me` `customer_admin` üyeliğini görür; negatif yollar (tekrar onay "zaten sonuçlanmış", olmayan id "bulunamadı", yetkisiz "yetkiniz yok") doğru. `pnpm -C apps/api run build` + `pnpm -C apps/admin run typecheck` temiz.
-
-## Müşteri yönetimi (`musteriler`) — bağlandı ✅
-
-- **API:** `apps/api/src/customer/customer.service.ts` — `list` (arama + aktif/pasif filtre, imleç sayfalama) · `get` (şubeler + kullanıcılar + son 10 sipariş) · `setActive` (`$transaction`: org güncelle + `activityLog` + `outboxEvent`, timeout 15s).
-- **Kapsam düzeltmesi (önemli):** `customer.manage` yetkisi hem üretici personeline (tüm firmalar) hem `customer_admin`'e (RBAC yorumu: "yalnızca kendi firması — sunucu kapsamı zorlar") verilir. İlk sürümde servis bunu zorlamıyordu — herhangi bir `customer_admin` tüm firmaları listeleyip pasife alabiliyordu. Düzeltildi: üretici olmayan çağıran `list`'te yalnız kendi org'unu görür, `get`'te başka org'a `NOT_FOUND` (varlığı bile sızdırmaz), `setActive` yalnızca üretici personeline açık. Canlı API ile üç senaryo da doğrulandı (seed `customer_admin` başka firmayı göremiyor/değiştiremiyor).
-- **tRPC:** `customer` router'ı — `list` / `get` / `setActive`, `capabilityProcedure('customer.manage')`; `app-router` / `trpc.service` / `trpc.module`'e bağlandı.
-- **Admin:** nav `musteriler` → ready. `(panel)/musteriler` liste (durum çipi + arama) + `[id]` detay (firma bilgisi, şubeler, kullanıcılar, son siparişler, Aktifleştir/Pasife al).
-
-## Katalog görüntüleme (`katalog`) — bağlandı ✅ (salt-okunur)
-
-- **Kapsam:** yalnızca listeleme/detay. Ürün/varyant/kategori/fiyat listesi **CRUD henüz yok** — mevcut `catalog.router.ts` sadece `categories` / `list` / `product` okuma uçlarını sunuyor. `nav.ts`'deki eski "planned" metni (tam yönetim) bu yüzden hedefi aşıyordu; ekran o kapsamla değil, mevcut okuma uçlarıyla sınırlı yapıldı.
-- **Güvenlik kontrolü:** `CatalogService.viewContext()` görünümü (`producerView`/`orgId`/`groupIds`) `ctx.user`'dan sunucuda türetiyor, istemci gönderemiyor — `musteriler`'daki gibi ayrıca bir kapsam düzeltmesi gerekmedi, ama yine de canlı API'de doğrulandı: üretici (`+905000000000`) gerçek stok bakiyesini (`available: 40`) görüyor, seed `customer_admin` (`+905321112233`) aynı üründe `available: null` alıyor (yalnız rozet), arama/eksik-id/oturumsuz istek beklenen `NOT_FOUND`/`UNAUTHORIZED` hatalarını veriyor.
-- **Admin:** nav `katalog` → ready. `(panel)/katalog` liste (kategori çipleri + arama, ürün/marka/kategori/varyant sayısı/fiyat aralığı/stok rozeti) + `[id]` detay (ürün bilgisi + varyant tablosu: birim, min. sipariş, adım, fiyat, fiyat kaynağı, stok rozeti, bakiye — bakiye yalnız üretici görünümünde dolu).
-- Stok rozeti etiket/renk eşlemesi (`STOCK_META`) şimdilik sayfa içinde inline — `@rc/shared`'da henüz paylaşılan bir karşılığı yok (`status-badge.tsx`'teki sipariş durumu deseninin aynısı).
+- **Veri modeli** (`apps/api/prisma/schema.prisma`): organizasyon/şube/kullanıcı/üyelik, katalog + varyant, fiyat listeleri (varsayılan/grup/müşteri), görünürlük kuralları, append-only stok defteri + gösterim override, sipariş + kalem + olay defteri, destek, hizmet/randevu, duyuru, bildirim, `activity_log`, `outbox`.
+- **Katalog, fiyat, ölçü birimi:** fiyat yalnızca sunucuda çözülür; müşteriye gerçek stok adedi sızmaz (rozet). Ölçü birimleri g/kg/ml/cl/l/adet/paket/kutu/koli/çuval, asgari miktar ve adım kuralı.
+- **Siparişler:** oluşturma, durum makinesi ve role kilitli geçişler, stok rezervasyon/serbest bırakma, siparişe sonradan kalem ekleme, olay zaman çizelgesi.
+- **Üyelik başvuruları** ve **müşteri yönetimi** (kapsam sunucuda zorlanır).
+- **Destek talepleri, duyurular, servis kataloğu/randevu.**
+- **Raporlar:** ciro, sipariş sayısı, duruma göre dağılım, en çok alan müşteri/ürün.
+- **Bildirimler:** `outbox` → `OutboxProcessor` → `NotificationService` (uygulama içi + Expo push).
+- **Excel içe/dışa aktarım** (`catalog.manage`): tek satır = bir varyant; önizleme (dry-run) sonra uygula, en fazla 500 satır, kategoriler adla oluşturulur, stok hedef bakiye olarak `adjustment` hareketiyle işlenir.
+- **Tek mobil uygulama, role göre ekranlar:** müşteri sekmeleri ve üretici sekmeleri (Siparişler, Başvurular, Katalog, Destek; "Daha fazla": Stok, Müşteriler, Servisler, Duyurular, Excel, Raporlar).
+- Test: `pnpm --filter @rc/shared test`.
 
 ## Sıradaki iş
 
-- Admin: fiyat listesi yönetimi / ürün-varyant CRUD ekranları
-- Worker (pg-boss): `outbox` → bildirim (`membership.approved` → başvurana "hesabın onaylandı")
+- Şube yönetimi arayüzü
+- Duyurularda müşteri grubu seçici
+- `ADMIN_EMAILS` ile yönetici bootstrap'i + Google/Apple hesap birleştirme
+- App Store yayın hazırlığı (ekran görüntüleri, gizlilik bilgisi, inceleme notları)
+- Android build ve Play Console
+- Render ücretsiz plan uykusu için keep-alive (`/health`'e UptimeRobot, ücretsiz)
+
+## Eski repo
+
+`D:\rc\RoasteryClub` (Firebase) beklemede; salt-okunur referans. Gizli anahtarlar içerdiği için **asla public yapılmaz.** `rc-platform` public olduğundan buraya sır konmaz.

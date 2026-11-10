@@ -1,7 +1,9 @@
 # RoasteryClub Yenileme Mimarisi
 
-> **Durum:** taslak v1 · **Tarih:** 2026-09-07 · **Kapsam:** baştan ürün + altyapı
-> Bu belge yaşayan referanstır. Kararlar netleştikçe burada güncellenir.
+> **Durum:** v2 (uygulamada) · **Tarih:** 2026-11-10 · **Kapsam:** baştan ürün + altyapı
+> Bu belge yaşayan referanstır. Güncel kurulum ve yayın durumu için `KURULUM.md`.
+> **v2 notu:** Orijinal taslaktan sapmalar §03, §04, §08, §09, §10, §12'de işaretlidir
+> (giriş: telefon+OTP yerine Google/Apple; admin paneli: tek Expo uygulaması; hosting: Render + Neon).
 
 ---
 
@@ -27,8 +29,9 @@
 
 Mevcut uygulama Expo (React Native) + Firebase üzerinde kurulu; iki ayrı Firebase SDK'sı bir arada,
 güvenlik kuralları ile istemci yazımları çelişiyor, veri modeli tutarsız ve repoda gizli anahtarlar
-var. Uygulama henüz canlı değil, gerçek kullanıcı yok — bu yüzden **veri göçü gerekmiyor**, temiz
-kurulum yapılabilir.
+var. Uygulama daha önce Firebase üzerinde üretilmiş ve çalışıyordu; bu çalışma onun **baştan
+yapılıp geliştirilmesidir**. Yeni sistem temiz bir Postgres şemasıyla kuruldu (veri, gerektiğinde
+Excel içe aktarımıyla taşınır).
 
 Hedef sistem klasik bir e-ticaret değil, **B2B ERP-lite**: müşteriye özel katalog ve fiyat, çok
 şubeli firmalar, departmanlar arası (satış → üretim → sevkiyat) role-kilitli sipariş akışı, siparişe
@@ -89,26 +92,26 @@ C'ye geçiş kod değişikliği değil, altyapı ayarıdır (read-replica, Redis
 | Katman | Seçim | Gerekçe / alternatif |
 |---|---|---|
 | Dil | **TypeScript** (uçtan uca) | Mevcut ekip bilgisi; Cloud Functions zaten TS |
-| Monorepo | **Turborepo + pnpm** | `apps/api`, `apps/admin`, `apps/mobile`, `packages/shared` |
+| Monorepo | **Turborepo + pnpm** | `apps/api`, `apps/mobile`, `packages/shared`; `apps/admin` donduruldu |
 | Backend | **NestJS** (Fastify adapter) | Modüler — çok sayıda bounded context için guard/DI yapısı. Alt: Fastify + elle yapı |
 | API stili | **tRPC** | Kapalı sistem, mobil + admin ikisi de TS → uçtan uca tip, codegen yok. Alt: REST + OpenAPI |
-| Veritabanı | **PostgreSQL** (yönetilen: Neon / Railway) | İlişkisel veri bu projenin özü; otomatik yedek + PITR |
+| Veritabanı | **PostgreSQL — Neon** (uygulamada) | İlişkisel veri bu projenin özü; otomatik yedek + PITR |
 | ORM | **Prisma** | Migration + tip güvenliği + hız. Alt: Drizzle (ham SQL) |
-| Kuyruk | **pg-boss** (Postgres üstünde) | Başta ayrı Redis yok; bildirim/e-posta/import işleri. İhtiyaç olursa Redis + BullMQ |
-| Kimlik | **Kendi modülü:** telefon + OTP + JWT (şifresiz) | Kalıcı oturum; kısa access + uzun rotating refresh (DB'de iptal edilebilir). Alt: Supabase Auth |
-| SMS / OTP | **Netgsm** veya İletimerkezi | Kayıtlı başlık; TR yerel sağlayıcı Firebase Phone Auth'tan çok ucuz. Yedek: Twilio Verify |
-| Dosya | **Cloudflare R2** (S3 API) | Egress ücretsiz; ürün görselleri, Excel, destek ekleri. Yükleme sonrası `sharp` ile boyut |
+| Kuyruk | **Transactional outbox + `OutboxProcessor`** (uygulamada) | Olaylar `outbox` tablosuna aynı transaction'da yazılır, işlemci bildirime çevirir. pg-boss/Redis ihtiyaç olursa eklenir |
+| Kimlik | **Kendi modülü:** Google / Apple ile giriş + admin onaylı üyelik + JWT (uygulamada) | Kısa access + uzun rotating refresh (DB'de iptal edilebilir). Ayrıntı §08 |
+| SMS / OTP | ~~Netgsm~~ — **kullanılmıyor** | Ücretsiz uygulama; telefon numarası kayıt formunda toplanır, SMS ile doğrulanmaz |
+| Dosya | **Cloudflare R2** (S3 API) — *planlı, henüz bağlı değil* | Ürün görselleri, destek ekleri için |
 | Push | **Expo Push** | FCM/APNs sarmalı, ücretsiz; app zaten Expo |
 | Realtime | **SSE** (müşteri sipariş takibi) | Tek yön, tek servis. Admin canlı panosu gerekirse Socket.IO |
-| Admin panel | **Next.js + Refine** → Vercel | 25+ yönetim alanı; Refine RBAC + veri gridi + CRUD hızlandırır |
-| Mobil | **Expo / React Native** (mevcut proje) | Firebase SDK'ları çıkar → tek tRPC client; sepet lokal kalıcı (MMKV) |
-| Raporlama | **Metabase** (PG'ye bağlı) — Faz 6 | Panel "Raporlar" bölümünü büyük ölçüde bedava karşılar |
-| Hosting | **Railway** veya Render | git push → deploy; managed Postgres aynı platformda. Yamalanacak makine yok |
-| Gözlem | **Sentry** + Uptime Kuma + Better Stack | Mobil + backend hata takibi; free tier ile başlar |
-| CI/CD | GitHub Actions → Docker → deploy | Mobil: EAS Build + EAS Submit (mevcut proje) |
+| Yönetim yüzeyi | **Tek Expo uygulaması, role göre ekranlar** (uygulamada) | Üretici sekmeleri aynı `apps/mobile` içinde; web derlemesi GitHub Pages'te (demo girişli). `apps/admin` (Next.js) donduruldu |
+| Mobil | **Expo SDK 54 / expo-router** | Tek tRPC client (React Query + superjson); API tipleri derlenmiş `dist`'ten |
+| Raporlama | **Uygulama içi "Raporlar" ekranı** (`report.summary`) | Metabase gerekirse sonra |
+| Hosting | **Render** (API) + **Neon** (DB) | git push → deploy. Ücretsiz planda API boşta uyur; keep-alive önerilir |
+| Gözlem | **Sentry** (opsiyonel `SENTRY_DSN`) | Uptime için ücretsiz UptimeRobot önerilir |
+| CI/CD | GitHub Actions | iOS: `eas build --local` → TestFlight; web: Pages; JS: EAS Update (OTA) |
 
 Sabit kararlar: TypeScript + NestJS + PostgreSQL + Prisma + tRPC, mobil Expo devam.
-Değişebilen: "nerede çalışıyor ve kaç parça" (Railway tek kutu → ileride ayrık servisler).
+Değişebilen: "nerede çalışıyor ve kaç parça" (Render tek servis → ileride ayrık servisler).
 
 ---
 
@@ -117,13 +120,17 @@ Değişebilen: "nerede çalışıyor ve kaç parça" (Railway tek kutu → ileri
 ```
 İSTEMCİLER                ÇEKİRDEK                     VERİ & SERVİSLER
 ─────────────             ─────────────                ──────────────────
-Müşteri app (Expo)   ┐                            ┌──  PostgreSQL (yönetilen, yedekli)
-Saha personeli app   ├──►  API (NestJS · tRPC)  ──┤
-  (satış/üretim/     │     Worker (pg-boss)       ├──  Cloudflare R2 (görsel · dosya)
-   sevkiyat)         │     SSE kanalı             │
-Yönetim paneli       ┘     [Railway / Render]     ├──  Netgsm (OTP SMS)
-  (Next.js · Vercel)                              └──  Expo Push (bildirim)
+Tek Expo uygulaması  ┐                            ┌──  PostgreSQL (Neon)
+  müşteri sekmeleri  ├──►  API (NestJS · tRPC)  ──┤
+  üretici sekmeleri  │     OutboxProcessor        ├──  Expo Push (bildirim)
+  (satış/üretim/     │     [Render]               │
+   sevkiyat/yönetim) │                            └──  Google / Apple (kimlik doğrulama)
+Web derlemesi        ┘
+  (GitHub Pages, demo girişli)
 ```
+
+> v2 notu: orijinal taslakta ayrı Next.js yönetim paneli, pg-boss worker, R2 ve Netgsm vardı;
+> bunların yerini yukarıdaki sade topoloji aldı.
 
 Tüm iş kuralları (fiyat çözümü, görünürlük, durum geçişi, stok düşümü) API'de; istemciler yalnızca
 sunucunun döndürdüğünü gösterir. Domain olayları `outbox` tablosuna yazılır, worker bunları
@@ -291,25 +298,33 @@ operasyonel uyarılar → yönetici.
 
 ## 08 · Kimlik doğrulama
 
-**Telefon doğrulama zorunlu. Şifre yok — kimlik yalnızca telefon + OTP.**
+> **v2 — karar değişti.** Orijinal taslak telefon + OTP (Netgsm SMS) öngörüyordu. Uygulama
+> ücretsiz olduğundan SMS maliyeti ve operasyonu kaldırıldı; giriş Google/Apple ile, erişim ise
+> yönetici onayıyla kapıdan geçiyor.
 
-1. Kayıt / yeni cihaz / yeniden giriş: telefon numarası girilir (E.164, `+90…`).
-2. Sunucu OTP üretir → Netgsm ile SMS. Kod 5 dk TTL; telefon + IP başına hız sınırı, 3 deneme.
-3. Kod doğrulanır. İlk kayıtta firma bilgileri alınır → `membership_requests`'e düşer, yönetici
-   onayı bekler (onayla / reddet / düzenle / rol ata / şube oluştur).
-4. Onay sonrası: kısa ömürlü **access JWT** (~15 dk) + **uzun ömürlü rotating refresh token**
-   (DB'de, iptal edilebilir; ~60–90 gün kayan süre) verilir. Refresh token cihazda güvenli depoda
-   tutulur (`expo-secure-store` / Keychain / Keystore).
-5. **Oturum kalıcıdır.** Uygulama süre dolmadan her açıldığında refresh sessizce yenilenir —
-   kullanıcıya bir daha OTP sorulmaz.
+**Şifre yok. Kimlik yalnızca Google veya Apple hesabı; erişim yönetici onayına bağlı.**
 
-**OTP yalnızca şu durumlarda tekrar istenir:**
+1. Kullanıcı mobil uygulamada Google veya Apple ile giriş yapar. Sunucu kimlik belirtecini doğrular
+   (`GOOGLE_MOBILE_CLIENT_ID` / `APPLE_BUNDLE_ID` `aud` kontrolü). Kullanıcı `(provider, providerUserId)`
+   ile tanınır; farklı sağlayıcı = farklı kullanıcı.
+2. Yeni kullanıcı `pending` durumundadır; kayıt formunu doldurur (firma, yetkili, şube/adres,
+   telefon E.164 — **SMS ile doğrulanmaz**) → `auth.submitMembershipRequest` → `membership_requests`.
+3. Üretici tarafında yetkili kişi **Başvurular** ekranından başvuruyu onaylar / reddeder
+   (`membership.review`). Onay tek transaction'da firma + şube + üyelik açar ve `membership.approved`
+   olayını yayınlar.
+4. Oturum: kısa ömürlü **access JWT** (~15 dk) + **uzun ömürlü rotating refresh token** (DB'de,
+   iptal edilebilir; ~75 gün kayan süre; yeniden kullanım tespitinde aile iptali). Refresh token
+   cihazda `expo-secure-store`'da tutulur (web'de localStorage).
+5. **Oturum kalıcıdır**; yalnızca bilinçli çıkış veya refresh süresi dolunca yeniden giriş gerekir.
+6. **Hesap silme** uygulama içinden yapılır (App Store gereği).
 
-- Kullanıcı bilerek "Çıkış yap" dediğinde (refresh token iptal edilir)
-- Yeni bir cihazdan giriş
-- Refresh token süresi dolduğunda (uzun süre uygulamayı hiç açmamak)
+**Demo girişi:** `auth.demoLogin`, Render'da `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa
+açılır (hız sınırlı, sabit zamanlı karşılaştırma). Web derlemesinde tek giriş yoludur. Apple
+incelemesine yalnızca müşteri kodu verilir.
 
-**KVKK:** açık rıza metni, OTP log saklama süresi, SMS başlık tescili.
+**Bilinen eksikler:** ilk yönetici üyeliği elle açılıyor (`ADMIN_EMAILS` bootstrap'i önerildi);
+Google ve Apple hesapları e-postayla birleştirilmiyor. **KVKK:** açık rıza metni ve hesap silme
+akışı mevcut; saklama süreleri netleştirilecek.
 
 ---
 
@@ -322,8 +337,8 @@ kimlik alanlarına dokunulmaz. Çıkan binary mevcut uygulamanın yeni sürümü
 
 | Alan | Değer |
 |---|---|
-| iOS bundle ID | `com.husnytarik.roasteryclub` |
-| Android package | `com.husnytarik.roasteryclub` |
+| iOS bundle ID | `com.roasteryclub.app` (ASC Apple ID `6752270952`) |
+| Android package | `app.config.ts`'teki değer — mevcut Play kaydıyla aynı kalmalı |
 | App Store Connect / Play Console kaydı | mevcut — dokunma |
 | Android imza anahtarı | mevcut keystore — **doğrula** (aşağıya bak) |
 | EAS proje kimliği | `app.config.ts` · `extra.eas.projectId` |
@@ -331,11 +346,14 @@ kimlik alanlarına dokunulmaz. Çıkan binary mevcut uygulamanın yeni sürümü
 
 ### Değişecek (yalnızca sürüm)
 
-| Alan | Şu an | Sonraki |
+| Alan | Eski (Firebase sürümü) | Şu an |
 |---|---|---|
-| `version` | 2.2.4 | 3.0.0 |
-| `ios.buildNumber` | 3 | 4+ |
-| `android.versionCode` | 27 | 28+ (mutlaka daha büyük) |
+| `version` | 2.2.4 | 3.0.0 (TestFlight build 17 mevcut) |
+| `ios.buildNumber` | 3 | CI'da `run_number` ile otomatik artar |
+| `android.versionCode` | 27 | 28+ (mutlaka daha büyük) — henüz yayınlanmadı |
+
+Native modüller (expo-notifications, google-signin vb.) 3.0.0 (17) binary'sindedir; bundan sonraki
+JS değişiklikleri EAS Update (OTA) ile gider, yalnızca native değişiklik yeni binary ister.
 
 ### Tek gerçek risk: Android imza anahtarı
 
@@ -357,10 +375,15 @@ inceleme riski düşük; ekran görüntüleri ve açıklama güncellenir.
 
 ## 10 · Yol haritası
 
+> **Durum (2026-11-10):** Faz 0–5 büyük ölçüde uygulandı (katalog/fiyat/görünürlük, siparişler ve
+> kalem ekleme, destek, hizmet, duyuru, bildirim/push, raporlar, Excel içe/dışa aktarım). Kalan:
+> şube yönetimi arayüzü, duyuru grup seçici, mağaza yayını (App Store / Android), hesap birleştirme.
+> Ayrıntı: `KURULUM.md`.
+
 | Faz | Ad | İçerik |
 |---|---|---|
 | **0** | UX temeli | ~14 çekirdek ekranın akış haritası + wireframe · tasarım tokenları (`packages/shared`) · mobil + web bileşen kiti · sipariş durumu / katalog kartı / görev kutusu prototipleri (§13) |
-| **1** | Temel | Monorepo · şema (org / şube / kullanıcı / RBAC) · telefon-OTP auth · API iskeleti · admin kabuğu · CI/CD |
+| **1** | Temel | Monorepo · şema (org / şube / kullanıcı / RBAC) · Google/Apple auth + onaylı üyelik · API iskeleti · admin kabuğu · CI/CD |
 | **2** | Katalog, fiyat, görünürlük | Ürün + varyant · fiyat listeleri · görünürlük kuralları · stok gösterimi · Excel içe/dışa aktarım |
 | **3** | Sipariş & operasyon | Sipariş oluşturma · durum makinesi · departman ekranları · kalem ekleme · olay/denetim · stok defteri · role özel bildirim |
 | **4** | Müşteri uygulaması | Ana sayfa / duyurular · katalog · kalıcı sepet · sipariş takip (SSE) · push · yeni sürüm mağazaya |
@@ -373,16 +396,16 @@ inceleme riski düşük; ekran görüntüleri ve açıklama güncellenir.
 
 | Kalem | Servis | Aylık |
 |---|---|---|
-| API + worker | Railway / Render | 10 – 25 |
-| PostgreSQL (yönetilen) | aynı platform veya Neon | 0 – 20 |
-| Yönetim paneli | Vercel Hobby → Pro | 0 – 20 |
+| API | Render (ücretsiz plan → ücretli) | 0 – 25 |
+| PostgreSQL | Neon | 0 – 20 |
+| Web paneli | GitHub Pages | 0 |
 | Dosya depolama | Cloudflare R2 | 1 – 5 |
 | Hata takibi | Sentry Developer → Team | 0 – 26 |
 | Push | Expo Push | 0 |
-| SMS / OTP | Netgsm | kullanıma bağlı |
+| SMS / OTP | — (kullanılmıyor) | 0 |
 | Alan adı | — | ~1 (yıllık ~15) |
 
-Başlangıç taban maliyeti **~25–75 USD/ay + SMS kullanımı**. Bu; Firestore okuma ücreti, Firebase
+Başlangıç taban maliyeti ücretsiz planlarla **~0 USD/ay**, büyüdükçe **~25–50 USD/ay** (v2: SMS ve ayrı panel hosting'i yok). Bu; Firestore okuma ücreti, Firebase
 Phone Auth, Cloud Functions çağrıları ve BigQuery aktarımının *tamamının* yerine geçer.
 
 ---
@@ -391,15 +414,15 @@ Phone Auth, Cloud Functions çağrıları ve BigQuery aktarımının *tamamını
 
 | Konu | Karar | Durum |
 |---|---|---|
-| Kimlik modeli | Şifresiz; telefon + OTP. Oturum kalıcı — sadece çıkış / yeni cihaz / token süresi dolunca OTP | ✅ karar verildi |
+| Kimlik modeli | **v2:** Google/Apple ile giriş + yönetici onaylı üyelik; SMS/OTP yok (ücretsiz uygulama). Oturum kalıcı | ✅ karar değişti, uygulandı |
+| Hesap birleştirme | Google ve Apple aynı kişiyi ayrı kullanıcı sayıyor; e-posta ile birleştirme + `ADMIN_EMAILS` bootstrap | ⏳ önerildi, yapılmadı |
 | API stili | tRPC — 3. parti API yok, veriler yalnızca bizde; her iki istemci de TypeScript | ✅ karar verildi |
 | Ölçek | ~300 müşteri firma → B kademesi. Plan değişmiyor, tek Postgres yeter | ✅ karar verildi |
 | Android imza anahtarı | Play App Signing açık mı? / orijinal keystore elde mi? | ⏳ kullanıcı kontrol edecek — ilk submit öncesi blocker |
 | Çok üreticili (multi-tenant) | Tek üretici varsayımı — şemada imkânsız kılınmayacak | ✅ varsayım kabul |
 | Müşteri grubu derinliği | Basit grup şimdi / kurallı segmentasyon sonra | ⏳ sonra |
 | Repo yapısı | Yeni temiz monorepo `rc-platform` (pnpm + Turborepo). Eski repo salt-okunur referans. Mobil app Faz 4'te `apps/mobile`'a kopyalanır | ✅ karar verildi |
-| Geliştirme veritabanı | Neon (bulut Postgres). Prod'da da Neon/Railway | ✅ karar verildi |
-| Eski repodaki gizli anahtarlar | Apple `.p8` + keystore + `credentials.json` yeni repoya taşınmadı; eski repo `rc_controlcenter` için Apple anahtarı iptal/yenile | ⏳ yapılacak |
+| Veritabanı / hosting | Neon (Postgres) + Render (API) | ✅ uygulandı |
 
 ---
 
