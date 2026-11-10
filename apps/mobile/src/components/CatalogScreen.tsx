@@ -2,7 +2,15 @@ import type { AppRouter } from '@rc/api/app-router';
 import { isCustomerRole } from '@rc/shared';
 import type { inferRouterOutputs } from '@trpc/server';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { useCart, type CartLine } from '@/providers/cart-context';
@@ -115,16 +123,40 @@ function ProductCard({ productId, productName, categoryName, variants }: {
 export function CatalogScreen() {
   const { identity } = useAuth();
   const canOrder = identity?.roles.some(isCustomerRole) ?? false;
-  const products = trpc.catalog.list.useQuery({ limit: 30 });
+  const [search, setSearch] = useState('');
+  const products = trpc.catalog.list.useInfiniteQuery(
+    { limit: 30, search: search.trim() || undefined },
+    { getNextPageParam: (last) => last.nextCursor ?? undefined },
+  );
+  const items = products.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <FlatList
       style={styles.flex}
       contentContainerStyle={styles.listContent}
-      data={products.data?.items ?? []}
+      data={items}
       keyExtractor={(p) => p.id}
-      refreshing={products.isFetching}
+      refreshing={products.isFetching && !products.isFetchingNextPage}
       onRefresh={() => void products.refetch()}
+      onEndReachedThreshold={0.4}
+      onEndReached={() => {
+        if (products.hasNextPage && !products.isFetchingNextPage) void products.fetchNextPage();
+      }}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <TextInput
+          style={styles.search}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Ürün ara…"
+          placeholderTextColor={colors.inkFaint}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      }
+      ListFooterComponent={
+        products.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.accent} /> : null
+      }
       ListEmptyComponent={
         products.isLoading ? (
           <ActivityIndicator style={{ marginTop: 24 }} color={colors.accent} />
@@ -134,14 +166,19 @@ export function CatalogScreen() {
       }
       renderItem={({ item }) => {
         if (!canOrder || item.variants.length === 0) {
-          const price = item.variants[0]?.price;
           return (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{item.name}</Text>
               <Text style={styles.cardMeta}>{item.categoryName ?? '—'}</Text>
-              <Text style={styles.cardPrice}>
-                {price ? `${price.unitPrice} ${price.currency}` : 'Fiyat yok'}
-              </Text>
+              {item.variants.length === 0 && <Text style={styles.cardMeta}>Varyant yok</Text>}
+              {item.variants.map((v) => (
+                <View key={v.id} style={styles.cardBottom}>
+                  <Text style={styles.cardMeta}>{v.name}</Text>
+                  <Text style={styles.cardPrice}>
+                    {v.price ? `${v.price.unitPrice} ${v.price.currency}` : 'Fiyat yok'}
+                  </Text>
+                </View>
+              ))}
             </View>
           );
         }
@@ -161,6 +198,17 @@ export function CatalogScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: spacing(5), gap: spacing(2.5) },
+  search: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2.5),
+    fontSize: 15,
+    color: colors.ink,
+    marginBottom: spacing(2.5),
+  },
   empty: { textAlign: 'center', color: colors.inkMuted, marginTop: spacing(6) },
   card: {
     backgroundColor: colors.surface,
