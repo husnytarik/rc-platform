@@ -19,13 +19,18 @@ const schema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(75),
 
-  GOOGLE_MOBILE_CLIENT_ID: z.string().min(1),
-  GOOGLE_ADMIN_CLIENT_ID: z.string().min(1),
-  APPLE_BUNDLE_ID: z.string().min(1),
 
   SENTRY_DSN: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   EXPO_ACCESS_TOKEN: z.string().optional(),
+
+  // SMS ile giriş (Netgsm). NETGSM_* üçü birden tanımlı olmalı; yoksa üretimde kod gönderilemez.
+  TC_HASH_SECRET: z.string().min(16).optional(),
+  NETGSM_USERCODE: z.string().optional(),
+  NETGSM_PASSWORD: z.string().optional(),
+  NETGSM_HEADER: z.string().optional(),
+  OTP_DAILY_CAP: z.coerce.number().int().positive().optional(),
+  ADMIN_PHONES: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

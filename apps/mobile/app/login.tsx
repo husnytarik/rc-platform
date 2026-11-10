@@ -1,14 +1,11 @@
-import {
-  GoogleSignin,
-  GoogleSigninButton,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { isValidTcKimlik, normalizeTc, toE164TR } from '@rc/shared';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,37 +17,58 @@ import { useAuth } from '@/providers/auth-context';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-});
-
 function errText(e: unknown, fallback: string): string {
   const m = (e as { message?: string } | undefined)?.message;
   return m && m.length < 200 ? m : fallback;
 }
 
+const RESEND_SECONDS = 60;
+
 export default function LoginScreen() {
   const { status, login } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [appleAvailable, setAppleAvailable] = useState(false);
-  const oauthLogin = trpc.auth.oauthLogin.useMutation();
+  const [tc, setTc] = useState('');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [wait, setWait] = useState(0);
+  const requestOtp = trpc.auth.requestOtp.useMutation();
+  const verifyOtp = trpc.auth.verifyOtp.useMutation();
   const demoLogin = trpc.auth.demoLogin.useMutation();
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoCode, setDemoCode] = useState('');
 
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      void AppleAuthentication.isAvailableAsync().then(setAppleAvailable);
-    }
-  }, []);
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
 
   if (status === 'authenticated') return <Redirect href="/" />;
 
-  const finish = (idToken: string, provider: 'google' | 'apple', fullName?: string): void => {
+  const tcOk = isValidTcKimlik(tc);
+  const phoneOk = toE164TR(phone) !== null;
+  const busy = requestOtp.isPending || verifyOtp.isPending || demoLogin.isPending;
+
+  const sendCode = (): void => {
     setError(null);
-    oauthLogin.mutate(
-      { provider, idToken, fullName },
+    requestOtp.mutate(
+      { tc: normalizeTc(tc), phone: phone.trim() },
+      {
+        onSuccess: () => {
+          setCodeSent(true);
+          setCode('');
+          setWait(RESEND_SECONDS);
+        },
+        onError: (e: unknown) => setError(errText(e, 'Kod gönderilemedi. Tekrar dener misin?')),
+      },
+    );
+  };
+
+  const submitCode = (): void => {
+    setError(null);
+    verifyOtp.mutate(
+      { tc: normalizeTc(tc), phone: phone.trim(), code },
       {
         onSuccess: (session) => {
           void login({ accessToken: session.accessToken, refreshToken: session.refreshToken });
@@ -58,41 +76,6 @@ export default function LoginScreen() {
         onError: (e: unknown) => setError(errText(e, 'Giriş yapılamadı. Tekrar dener misin?')),
       },
     );
-  };
-
-  const signInWithGoogle = async (): Promise<void> => {
-    setError(null);
-    try {
-      await GoogleSignin.hasPlayServices();
-      const res = await GoogleSignin.signIn();
-      if (res.type !== 'success' || !res.data.idToken) return;
-      finish(res.data.idToken, 'google');
-    } catch (e) {
-      const code = (e as { code?: string } | undefined)?.code;
-      if (code === statusCodes.SIGN_IN_CANCELLED || code === statusCodes.IN_PROGRESS) return;
-      setError(errText(e, 'Google ile giriş başarısız oldu.'));
-    }
-  };
-
-  const signInWithApple = async (): Promise<void> => {
-    setError(null);
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      if (!credential.identityToken) return;
-      const fullName = credential.fullName
-        ? AppleAuthentication.formatFullName(credential.fullName)
-        : undefined;
-      finish(credential.identityToken, 'apple', fullName && fullName.length > 0 ? fullName : undefined);
-    } catch (e) {
-      const code = (e as { code?: string } | undefined)?.code;
-      if (code === 'ERR_REQUEST_CANCELED') return;
-      setError(errText(e, 'Apple ile giriş başarısız oldu.'));
-    }
   };
 
   const submitDemo = (): void => {
@@ -108,79 +91,143 @@ export default function LoginScreen() {
     );
   };
 
-  const busy = oauthLogin.isPending || demoLogin.isPending;
-
   return (
     <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
-      <View style={styles.hero}>
-        <View style={styles.mark}>
-          <Text style={styles.markText}>RC</Text>
-        </View>
-        <Text style={styles.brand}>RoasteryClub</Text>
-        <Text style={styles.tagline}>Üreticiden işletmene, tek platformda</Text>
-      </View>
-
-      <View style={styles.sheet}>
-        <Text style={styles.sheetTitle}>Devam etmek için giriş yap</Text>
-        <Text style={styles.sheetSubtitle}>
-          Telefon numaranı ilk başvuruda alıp ekibimiz seni arayarak doğrulayacak.
-        </Text>
-
-        <View style={styles.buttons}>
-          <GoogleSigninButton
-            style={styles.googleButton}
-            size={GoogleSigninButton.Size.Wide}
-            color={GoogleSigninButton.Color.Dark}
-            disabled={busy}
-            onPress={() => void signInWithGoogle()}
-          />
-
-          {Platform.OS === 'ios' && appleAvailable && (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={radius.sm}
-              style={styles.appleButton}
-              onPress={() => void signInWithApple()}
-            />
-          )}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.hero}>
+          <View style={styles.mark}>
+            <Text style={styles.markText}>RC</Text>
+          </View>
+          <Text style={styles.brand}>RoasteryClub</Text>
+          <Text style={styles.tagline}>Üreticiden işletmene, tek platformda</Text>
         </View>
 
-        {demoOpen ? (
-          <View style={styles.demoBox}>
+        <ScrollView
+          style={styles.sheetScroll}
+          contentContainerStyle={styles.sheet}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.sheetTitle}>Giriş yap</Text>
+          <Text style={styles.sheetSubtitle}>
+            {codeSent
+              ? 'Telefonuna gelen 6 haneli kodu gir.'
+              : 'T.C. kimlik numaranı ve telefonunu gir, sana SMS ile bir kod gönderelim.'}
+          </Text>
+
+          <View style={styles.fields}>
             <TextInput
-              style={styles.demoInput}
-              value={demoCode}
-              onChangeText={setDemoCode}
-              placeholder="Demo kodu"
+              style={[styles.input, codeSent && styles.inputLocked]}
+              value={tc}
+              onChangeText={setTc}
+              placeholder="T.C. kimlik no"
               placeholderTextColor={colors.inkFaint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
+              keyboardType="number-pad"
+              maxLength={11}
+              editable={!codeSent && !busy}
             />
+            <TextInput
+              style={[styles.input, codeSent && styles.inputLocked]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Telefon (05xx xxx xx xx)"
+              placeholderTextColor={colors.inkFaint}
+              keyboardType="phone-pad"
+              editable={!codeSent && !busy}
+            />
+            {codeSent && (
+              <TextInput
+                style={[styles.input, styles.codeInput]}
+                value={code}
+                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+                placeholder="______"
+                placeholderTextColor={colors.inkFaint}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
+                editable={!busy}
+                onSubmitEditing={() => code.length === 6 && !busy && submitCode()}
+              />
+            )}
+          </View>
+
+          {!codeSent ? (
             <TouchableOpacity
-              style={[styles.demoButton, (busy || demoCode.trim().length < 4) && styles.demoDisabled]}
-              disabled={busy || demoCode.trim().length < 4}
-              onPress={submitDemo}
+              style={[styles.primary, (!tcOk || !phoneOk || busy) && styles.disabled]}
+              disabled={!tcOk || !phoneOk || busy}
+              onPress={sendCode}
             >
-              <Text style={styles.demoButtonText}>Demo ile gir</Text>
+              <Text style={styles.primaryText}>Kod gönder</Text>
             </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity onPress={() => setDemoOpen(true)}>
-            <Text style={styles.demoLink}>Demo girişi</Text>
-          </TouchableOpacity>
-        )}
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.primary, (code.length !== 6 || busy) && styles.disabled]}
+                disabled={code.length !== 6 || busy}
+                onPress={submitCode}
+              >
+                <Text style={styles.primaryText}>Giriş yap</Text>
+              </TouchableOpacity>
+              <View style={styles.linkRow}>
+                <TouchableOpacity disabled={wait > 0 || busy} onPress={sendCode}>
+                  <Text style={[styles.link, (wait > 0 || busy) && styles.linkDisabled]}>
+                    {wait > 0 ? `Kodu tekrar gönder (${wait})` : 'Kodu tekrar gönder'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={busy}
+                  onPress={() => {
+                    setCodeSent(false);
+                    setCode('');
+                    setError(null);
+                  }}
+                >
+                  <Text style={styles.link}>Bilgileri değiştir</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
-        {busy && (
-          <View style={styles.busyRow}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={styles.busyText}>Giriş yapılıyor…</Text>
-          </View>
-        )}
+          {demoOpen ? (
+            <View style={styles.demoBox}>
+              <TextInput
+                style={styles.demoInput}
+                value={demoCode}
+                onChangeText={setDemoCode}
+                placeholder="Demo kodu"
+                placeholderTextColor={colors.inkFaint}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+              />
+              <TouchableOpacity
+                style={[styles.demoButton, (busy || demoCode.trim().length < 4) && styles.disabled]}
+                disabled={busy || demoCode.trim().length < 4}
+                onPress={submitDemo}
+              >
+                <Text style={styles.demoButtonText}>Demo ile gir</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => setDemoOpen(true)}>
+              <Text style={styles.demoLink}>Demo girişi</Text>
+            </TouchableOpacity>
+          )}
 
-        {error && <Text style={styles.error}>{error}</Text>}
-      </View>
+          {busy && (
+            <View style={styles.busyRow}>
+              <ActivityIndicator color={colors.accent} />
+              <Text style={styles.busyText}>Lütfen bekle…</Text>
+            </View>
+          )}
+
+          {error && <Text style={styles.error}>{error}</Text>}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -206,10 +253,13 @@ const styles = StyleSheet.create({
   markText: { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: 0.5 },
   brand: { color: '#fff', fontSize: 30, fontWeight: '800', letterSpacing: 0.3 },
   tagline: { color: 'rgba(255,255,255,0.85)', fontSize: 14, textAlign: 'center' },
-  sheet: {
+  sheetScroll: {
+    flexGrow: 0,
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg + 8,
     borderTopRightRadius: radius.lg + 8,
+  },
+  sheet: {
     paddingHorizontal: spacing(6),
     paddingTop: spacing(8),
     paddingBottom: spacing(9),
@@ -224,9 +274,31 @@ const styles = StyleSheet.create({
     marginBottom: spacing(5),
     lineHeight: 19,
   },
-  buttons: { gap: spacing(3), alignItems: 'center' },
-  googleButton: { width: '100%', height: 52 },
-  appleButton: { width: '100%', height: 52 },
+  fields: { gap: spacing(3) },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(3.5),
+    paddingVertical: spacing(3.5),
+    fontSize: 16,
+    color: colors.ink,
+    backgroundColor: colors.surface,
+  },
+  inputLocked: { backgroundColor: colors.bg, color: colors.inkMuted },
+  codeInput: { textAlign: 'center', fontSize: 24, letterSpacing: 8, fontWeight: '700' },
+  primary: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(3.5),
+    alignItems: 'center',
+    marginTop: spacing(4),
+  },
+  primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  disabled: { opacity: 0.5 },
+  linkRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing(4) },
+  link: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  linkDisabled: { color: colors.inkFaint },
   demoLink: {
     color: colors.inkMuted,
     fontSize: 13,
@@ -252,7 +324,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   demoButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  demoDisabled: { opacity: 0.5 },
   busyRow: {
     flexDirection: 'row',
     alignItems: 'center',

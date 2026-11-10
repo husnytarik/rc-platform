@@ -26,6 +26,7 @@ enum OrgType {
 enum AuthProvider {
   google
   apple
+  phone // telefon + TC + SMS kodu (güncel giriş yöntemi)
 }
 
 enum Role {
@@ -233,9 +234,10 @@ model Branch {
 
 model User {
   id             String       @id @default(uuid()) @db.Uuid
-  provider       AuthProvider // Google/Apple — giriş kimliği
-  providerUserId String       // OAuth sağlayıcının `sub` değeri
-  phone          String?      @unique // E.164 — kayıt formunda toplanır, admin telefonla doğrular
+  provider       AuthProvider // phone (güncel) — eski kayıtlarda google/apple
+  providerUserId String       // phone için E.164 numara; eski kayıtlarda OAuth `sub`
+  phone          String?      @unique // E.164 — SMS kodu ile doğrulanan giriş kimliği
+  tcHash         String?      // HMAC(TC kimlik no) — düz TC saklanmaz; ilk doğrulanmış girişte bağlanır
   fullName       String?
   email          String?
   isActive       Boolean      @default(true)
@@ -812,4 +814,22 @@ model Counter {
   updatedAt DateTime @updatedAt
 
   @@map("counters")
+}
+
+// ── SMS ile giriş kodu (OTP) ─────────────────────────────────────────────────
+
+model OtpCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  phone      String // E.164
+  tcHash     String
+  codeHash   String // HMAC(kod) — düz kod saklanmaz
+  attempts   Int       @default(0)
+  ip         String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([createdAt])
+  @@map("otp_codes")
 }

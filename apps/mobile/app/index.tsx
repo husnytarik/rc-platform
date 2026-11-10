@@ -27,7 +27,6 @@ function displayName(identity: { fullName: string | null; phone: string | null }
 }
 
 function RegistrationForm({ onSubmitted }: { onSubmitted: () => void }) {
-  const [phone, setPhone] = useState('');
   const [orgName, setOrgName] = useState('');
   const [taxId, setTaxId] = useState('');
   const [address, setAddress] = useState('');
@@ -35,13 +34,12 @@ function RegistrationForm({ onSubmitted }: { onSubmitted: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const submit = trpc.auth.submitMembershipRequest.useMutation();
-  const canSubmit = phone.trim().length >= 7 && orgName.trim().length >= 2 && !submit.isPending;
+  const canSubmit = orgName.trim().length >= 2 && !submit.isPending;
 
   const send = (): void => {
     setError(null);
     submit.mutate(
       {
-        phone: phone.trim(),
         orgName: orgName.trim(),
         taxId: taxId.trim() || undefined,
         address: address.trim() || undefined,
@@ -62,21 +60,10 @@ function RegistrationForm({ onSubmitted }: { onSubmitted: () => void }) {
       <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.formTitle}>Firma bilgilerini paylaş</Text>
         <Text style={styles.formSubtitle}>
-          Ekibimiz belirttiğin telefon numarasından seni arayıp başvurunu doğrulayacak.
+          Telefonun doğrulandı. Ekibimiz başvurunu inceleyip onayladığında katalog ve siparişlere erişebileceksin.
         </Text>
 
         <View style={styles.formFields}>
-          <View style={styles.field}>
-            <Text style={styles.label}>Telefon *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="+90 5xx xxx xx xx"
-              placeholderTextColor={colors.inkFaint}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </View>
           <View style={styles.field}>
             <Text style={styles.label}>Firma adı *</Text>
             <TextInput
@@ -168,8 +155,8 @@ export default function HomeScreen() {
         </View>
         <Text style={styles.title}>Merhaba, {displayName(identity)}</Text>
         <Text style={styles.pending}>
-          Başvurun inceleniyor. Ekibimiz seni telefonla arayıp doğruladıktan sonra bu ekrandan
-          katalog ve siparişlerine erişebileceksin.
+          Başvurun inceleniyor. Ekibimiz onayladığında bu ekrandan katalog ve siparişlerine
+          erişebileceksin.
         </Text>
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutButtonText}>Çıkış yap</Text>

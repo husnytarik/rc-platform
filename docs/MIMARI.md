@@ -3,7 +3,7 @@
 > **Durum:** v2 (uygulamada) · **Tarih:** 2026-11-10 · **Kapsam:** baştan ürün + altyapı
 > Bu belge yaşayan referanstır. Güncel kurulum ve yayın durumu için `KURULUM.md`.
 > **v2 notu:** Orijinal taslaktan sapmalar §03, §04, §08, §09, §10, §12'de işaretlidir
-> (giriş: telefon+OTP yerine Google/Apple; admin paneli: tek Expo uygulaması; hosting: Render + Neon).
+> (giriş: telefon + TC + SMS kodu; admin paneli: tek Expo uygulaması; hosting: Render + Neon).
 
 ---
 
@@ -98,8 +98,8 @@ C'ye geçiş kod değişikliği değil, altyapı ayarıdır (read-replica, Redis
 | Veritabanı | **PostgreSQL — Neon** (uygulamada) | İlişkisel veri bu projenin özü; otomatik yedek + PITR |
 | ORM | **Prisma** | Migration + tip güvenliği + hız. Alt: Drizzle (ham SQL) |
 | Kuyruk | **Transactional outbox + `OutboxProcessor`** (uygulamada) | Olaylar `outbox` tablosuna aynı transaction'da yazılır, işlemci bildirime çevirir. pg-boss/Redis ihtiyaç olursa eklenir |
-| Kimlik | **Kendi modülü:** Google / Apple ile giriş + admin onaylı üyelik + JWT (uygulamada) | Kısa access + uzun rotating refresh (DB'de iptal edilebilir). Ayrıntı §08 |
-| SMS / OTP | ~~Netgsm~~ — **kullanılmıyor** | Ücretsiz uygulama; telefon numarası kayıt formunda toplanır, SMS ile doğrulanmaz |
+| Kimlik | **Kendi modülü:** T.C. kimlik + telefon + SMS kodu + admin onaylı üyelik + JWT (uygulamada) | Kısa access + uzun rotating refresh (DB'de iptal edilebilir). Ayrıntı §08 |
+| SMS / OTP | **Netgsm** (ön ödemeli kontör) | Giriş kodu SMS ile gider; limitler ve günlük tavan maliyeti sınırlar |
 | Dosya | **Cloudflare R2** (S3 API) — *planlı, henüz bağlı değil* | Ürün görselleri, destek ekleri için |
 | Push | **Expo Push** | FCM/APNs sarmalı, ücretsiz; app zaten Expo |
 | Realtime | **SSE** (müşteri sipariş takibi) | Tek yön, tek servis. Admin canlı panosu gerekirse Socket.IO |
@@ -298,32 +298,33 @@ operasyonel uyarılar → yönetici.
 
 ## 08 · Kimlik doğrulama
 
-> **v2 — karar değişti.** Orijinal taslak telefon + OTP (Netgsm SMS) öngörüyordu. Uygulama
-> ücretsiz olduğundan SMS maliyeti ve operasyonu kaldırıldı; giriş Google/Apple ile, erişim ise
-> yönetici onayıyla kapıdan geçiyor.
+> **v2 — karar güncellendi.** Orijinal taslak telefon + OTP öngörüyordu; arada Google/Apple girişi
+> denendi. Güncel (2026-11-11): **T.C. kimlik no + telefon + SMS kodu.** Şifre yok; SMS kodu oturumun
+> şifresi. Erişim yine yönetici onayına bağlı.
 
-**Şifre yok. Kimlik yalnızca Google veya Apple hesabı; erişim yönetici onayına bağlı.**
-
-1. Kullanıcı mobil uygulamada Google veya Apple ile giriş yapar. Sunucu kimlik belirtecini doğrular
-   (`GOOGLE_MOBILE_CLIENT_ID` / `APPLE_BUNDLE_ID` `aud` kontrolü). Kullanıcı `(provider, providerUserId)`
-   ile tanınır; farklı sağlayıcı = farklı kullanıcı.
-2. Yeni kullanıcı `pending` durumundadır; kayıt formunu doldurur (firma, yetkili, şube/adres,
-   telefon E.164 — **SMS ile doğrulanmaz**) → `auth.submitMembershipRequest` → `membership_requests`.
-3. Üretici tarafında yetkili kişi **Başvurular** ekranından başvuruyu onaylar / reddeder
-   (`membership.review`). Onay tek transaction'da firma + şube + üyelik açar ve `membership.approved`
-   olayını yayınlar.
+1. Kullanıcı TC ve telefonunu girer. Sunucu TC biçimini (sağlama basamakları) ve numarayı doğrular,
+   telefona 6 haneli kod yollar (SMS: Netgsm). Kod 5 dk geçerli, tek kullanımlık, 5 yanlış denemede
+   yanar; kod ve TC yalnızca HMAC özeti olarak saklanır (`otp_codes`, `users.tcHash`).
+2. Kayıtlı numara farklı TC ile denenirse SMS gönderilmez. İlk doğrulanmış girişte (eski hesaplar için)
+   TC hesaba bağlanır.
+3. Yeni numara `pending` kullanıcı olur, firma formunu doldurur → `membership_requests`. Üretici
+   tarafında yetkili kişi **Başvurular** ekranından onaylar/reddeder (`membership.review`); onay tek
+   transaction'da firma + şube + üyelik açar ve `membership.approved` olayını yayınlar.
 4. Oturum: kısa ömürlü **access JWT** (~15 dk) + **uzun ömürlü rotating refresh token** (DB'de,
-   iptal edilebilir; ~75 gün kayan süre; yeniden kullanım tespitinde aile iptali). Refresh token
-   cihazda `expo-secure-store`'da tutulur (web'de localStorage).
-5. **Oturum kalıcıdır**; yalnızca bilinçli çıkış veya refresh süresi dolunca yeniden giriş gerekir.
-6. **Hesap silme** uygulama içinden yapılır (App Store gereği).
+   iptal edilebilir; ~75 gün kayan süre; yeniden kullanımda aile iptali). Refresh token cihazda
+   `expo-secure-store`'da (web'de localStorage).
+5. **Oturum kalıcıdır**; yalnızca bilinçli çıkış veya refresh süresi dolunca yeniden SMS kodu gerekir.
+6. **İlk yönetici:** `ADMIN_PHONES` numarası SMS ile girince üretici org'unda yönetici olur.
+7. **Hesap silme** uygulama içinden yapılır (App Store gereği).
 
-**Demo girişi:** `auth.demoLogin`, Render'da `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa
-açılır (hız sınırlı, sabit zamanlı karşılaştırma). Web derlemesinde tek giriş yoludur. Apple
-incelemesine yalnızca müşteri kodu verilir.
+**Suistimal/maliyet koruması:** numara başına 60 sn aralık + saatte 5 kod; IP başına saatte 20 istek;
+günlük toplam SMS tavanı (`OTP_DAILY_CAP`). **Sınırlar:** TC yalnızca biçim olarak doğrulanır, NVİ
+sorgulanmaz; güvenlik SMS kodunun telefon sahipliğini kanıtlamasına dayanır. SIM değişimi/ele geçirme
+riski kabul edilmiştir.
 
-**Bilinen eksikler:** ilk yönetici üyeliği elle açılıyor (`ADMIN_EMAILS` bootstrap'i önerildi);
-Google ve Apple hesapları e-postayla birleştirilmiyor. **KVKK:** açık rıza metni ve hesap silme
+**Demo girişi:** `auth.demoLogin`, `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa açılır (hız
+sınırlı, sabit zamanlı karşılaştırma). Web derlemesinde tek giriş yoludur; Apple incelemesine yalnızca
+müşteri kodu verilir. **KVKK:** TC kimlik no kişisel veridir — düz saklanmaz, açık rıza ve hesap silme
 akışı mevcut; saklama süreleri netleştirilecek.
 
 ---
@@ -377,13 +378,13 @@ inceleme riski düşük; ekran görüntüleri ve açıklama güncellenir.
 
 > **Durum (2026-11-10):** Faz 0–5 büyük ölçüde uygulandı (katalog/fiyat/görünürlük, siparişler ve
 > kalem ekleme, destek, hizmet, duyuru, bildirim/push, raporlar, Excel içe/dışa aktarım). Kalan:
-> şube yönetimi arayüzü, duyuru grup seçici, mağaza yayını (App Store / Android), hesap birleştirme.
+> şube yönetimi arayüzü, duyuru grup seçici, mağaza yayını (App Store / Android).
 > Ayrıntı: `KURULUM.md`.
 
 | Faz | Ad | İçerik |
 |---|---|---|
 | **0** | UX temeli | ~14 çekirdek ekranın akış haritası + wireframe · tasarım tokenları (`packages/shared`) · mobil + web bileşen kiti · sipariş durumu / katalog kartı / görev kutusu prototipleri (§13) |
-| **1** | Temel | Monorepo · şema (org / şube / kullanıcı / RBAC) · Google/Apple auth + onaylı üyelik · API iskeleti · admin kabuğu · CI/CD |
+| **1** | Temel | Monorepo · şema (org / şube / kullanıcı / RBAC) · telefon + TC + SMS kodu + onaylı üyelik · API iskeleti · admin kabuğu · CI/CD |
 | **2** | Katalog, fiyat, görünürlük | Ürün + varyant · fiyat listeleri · görünürlük kuralları · stok gösterimi · Excel içe/dışa aktarım |
 | **3** | Sipariş & operasyon | Sipariş oluşturma · durum makinesi · departman ekranları · kalem ekleme · olay/denetim · stok defteri · role özel bildirim |
 | **4** | Müşteri uygulaması | Ana sayfa / duyurular · katalog · kalıcı sepet · sipariş takip (SSE) · push · yeni sürüm mağazaya |
@@ -402,7 +403,7 @@ inceleme riski düşük; ekran görüntüleri ve açıklama güncellenir.
 | Dosya depolama | Cloudflare R2 | 1 – 5 |
 | Hata takibi | Sentry Developer → Team | 0 – 26 |
 | Push | Expo Push | 0 |
-| SMS / OTP | — (kullanılmıyor) | 0 |
+| SMS / OTP | Netgsm (kullanıma bağlı, günlük tavanlı) | ~0 – 5 |
 | Alan adı | — | ~1 (yıllık ~15) |
 
 Başlangıç taban maliyeti ücretsiz planlarla **~0 USD/ay**, büyüdükçe **~25–50 USD/ay** (v2: SMS ve ayrı panel hosting'i yok). Bu; Firestore okuma ücreti, Firebase
@@ -414,8 +415,8 @@ Phone Auth, Cloud Functions çağrıları ve BigQuery aktarımının *tamamını
 
 | Konu | Karar | Durum |
 |---|---|---|
-| Kimlik modeli | **v2:** Google/Apple ile giriş + yönetici onaylı üyelik; SMS/OTP yok (ücretsiz uygulama). Oturum kalıcı | ✅ karar değişti, uygulandı |
-| Hesap birleştirme | Google ve Apple aynı kişiyi ayrı kullanıcı sayıyor; e-posta ile birleştirme + `ADMIN_EMAILS` bootstrap | ⏳ önerildi, yapılmadı |
+| Kimlik modeli | **v2:** T.C. kimlik + telefon + SMS kodu + yönetici onaylı üyelik. Oturum kalıcı | ✅ uygulandı |
+| SMS sağlayıcısı | Netgsm hesabı + onaylı başlık henüz açılmadı; istemci gerçek hesapla denenmedi | ⏳ kullanıcı açacak |
 | API stili | tRPC — 3. parti API yok, veriler yalnızca bizde; her iki istemci de TypeScript | ✅ karar verildi |
 | Ölçek | ~300 müşteri firma → B kademesi. Plan değişmiyor, tek Postgres yeter | ✅ karar verildi |
 | Android imza anahtarı | Play App Signing açık mı? / orijinal keystore elde mi? | ⏳ kullanıcı kontrol edecek — ilk submit öncesi blocker |

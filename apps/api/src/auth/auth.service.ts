@@ -1,9 +1,17 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { toE164TR } from '@rc/shared';
-import type { AuthProvider } from '@prisma/client';
+import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { isValidTcKimlik, normalizeTc, toE164TR } from '@rc/shared';
+import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
-import { OauthService } from './oauth.service';
+import { SmsService } from './sms.service';
 import { TokenService } from './token.service';
 
 interface Ctx {
@@ -13,7 +21,7 @@ interface Ctx {
 }
 
 export interface MembershipRequestInfo {
-  phone: string;
+  phone?: string;
   orgName: string;
   taxId?: string;
   address?: string;
@@ -30,59 +38,201 @@ export interface SessionResult {
   user: { id: string; phone: string | null; fullName: string | null };
 }
 
+const tooMany = (msg: string): HttpException => new HttpException(msg, HttpStatus.TOO_MANY_REQUESTS);
+
 const sha = (s: string): Buffer => createHash('sha256').update(s).digest();
 
 /** Demo girişi deneme sınırı: IP başına 15 dakikada 8 yanlış deneme. */
 const DEMO_WINDOW_MS = 15 * 60 * 1000;
 const DEMO_MAX_FAILS = 8;
 
+/** SMS kodu: 6 hane, 5 dk geçerli, kod başına en çok 5 yanlış deneme. */
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+/** Aynı numaraya iki kod arası en az 60 sn; saatte en çok 5 kod. */
+const OTP_COOLDOWN_MS = 60 * 1000;
+const OTP_PER_PHONE_HOURLY = 5;
+/** Aynı IP'den saatte en çok 20 kod isteği. */
+const OTP_PER_IP_HOURLY = 20;
+const HOUR_MS = 60 * 60 * 1000;
+/** Günlük toplam SMS tavanı (kötüye kullanım/fatura koruması). Varsayılan 200. */
+const DEFAULT_DAILY_CAP = 200;
+
 @Injectable()
 export class AuthService {
   private readonly demoFails = new Map<string, { n: number; since: number }>();
+  private readonly ipRequests = new Map<string, { n: number; since: number }>();
+  private readonly hmacKey: string;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly oauth: OauthService,
     private readonly tokens: TokenService,
-  ) {}
+    private readonly sms: SmsService,
+    config: ConfigService<Env, true>,
+  ) {
+    // TC ve kod özetleri bu anahtarla HMAC'lenir. TC_HASH_SECRET tanımlıysa o, değilse refresh sırrı.
+    // Dikkat: anahtar değişirse kayıtlı TC özetleri eşleşmez — rotasyondan önce planlayın.
+    this.hmacKey =
+      config.get('TC_HASH_SECRET', { infer: true }) ?? config.get('JWT_REFRESH_SECRET', { infer: true });
+  }
 
-  async oauthLogin(
-    provider: AuthProvider,
-    idToken: string,
-    ctx: Ctx,
-    fullName?: string,
-  ): Promise<SessionResult> {
-    const profile = await this.oauth.verify(provider, idToken);
+  private h(scope: string, value: string): string {
+    return createHmac('sha256', this.hmacKey).update(`${scope}:${value}`).digest('hex');
+  }
 
-    let user = await this.prisma.user.findUnique({
-      where: { provider_providerUserId: { provider, providerUserId: profile.providerUserId } },
-      include: { memberships: { where: { status: 'active' } } },
+  private safeEq(a: string, b: string): boolean {
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    return ba.length === bb.length && timingSafeEqual(ba, bb);
+  }
+
+  private adminPhones(): string[] {
+    return (process.env.ADMIN_PHONES ?? '')
+      .split(',')
+      .map((p) => toE164TR(p.trim()))
+      .filter((p): p is string => p !== null);
+  }
+
+  private parseIdentity(tcRaw: string, phoneRaw: string): { tc: string; phone: string } {
+    const tc = normalizeTc(tcRaw);
+    if (!isValidTcKimlik(tc)) throw new BadRequestException('Geçerli bir T.C. kimlik numarası girin.');
+    const phone = toE164TR(phoneRaw);
+    if (!phone) throw new BadRequestException('Geçerli bir Türkiye cep telefonu girin.');
+    return { tc, phone };
+  }
+
+  /**
+   * 1. adım: TC + telefon girilir, telefona 6 haneli SMS kodu gider. Kod, oturumun "şifresidir".
+   * SMS maliyeti ve kötüye kullanım için: IP/numara limitleri ve günlük toplam tavan uygulanır;
+   * kayıtlı bir numara farklı bir TC ile denenirse SMS gönderilmez.
+   */
+  async requestOtp(tcRaw: string, phoneRaw: string, ctx: Ctx): Promise<{ expiresInSec: number }> {
+    const { tc, phone } = this.parseIdentity(tcRaw, phoneRaw);
+    const tcHash = this.h('tc', tc);
+    const now = Date.now();
+
+    const ipKey = ctx.ip ?? 'unknown';
+    const ipRec = this.ipRequests.get(ipKey);
+    const freshIp = !ipRec || now - ipRec.since >= HOUR_MS;
+    if (!freshIp && ipRec.n >= OTP_PER_IP_HOURLY) {
+      throw tooMany('Çok fazla deneme. Biraz sonra tekrar deneyin.');
+    }
+    this.ipRequests.set(ipKey, { n: freshIp ? 1 : ipRec.n + 1, since: freshIp ? now : ipRec.since });
+
+    const existing = await this.prisma.user.findUnique({
+      where: { phone },
+      select: { isActive: true, tcHash: true },
     });
-
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          provider,
-          providerUserId: profile.providerUserId,
-          email: profile.email,
-          fullName: fullName ?? profile.fullName,
-        },
-        include: { memberships: true },
-      });
+    if (existing) {
+      if (!existing.isActive) throw new ForbiddenException('Bu hesap devre dışı.');
+      if (existing.tcHash && !this.safeEq(existing.tcHash, tcHash)) {
+        throw new BadRequestException('Telefon ve T.C. kimlik numarası eşleşmiyor.');
+      }
     }
 
+    const hourAgo = new Date(now - HOUR_MS);
+    const dayAgo = new Date(now - 24 * HOUR_MS);
+    const recent = await this.prisma.otpCode.findMany({
+      where: { phone, createdAt: { gte: hourAgo } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    const last = recent[0];
+    if (last && now - last.createdAt.getTime() < OTP_COOLDOWN_MS) {
+      const wait = Math.ceil((OTP_COOLDOWN_MS - (now - last.createdAt.getTime())) / 1000);
+      throw tooMany(`Yeni kod için ${wait} saniye bekleyin.`);
+    }
+    if (recent.length >= OTP_PER_PHONE_HOURLY) {
+      throw tooMany('Bu numara için çok fazla kod istendi. Bir saat sonra deneyin.');
+    }
+    const cap = Number(process.env.OTP_DAILY_CAP) || DEFAULT_DAILY_CAP;
+    if ((await this.prisma.otpCode.count({ where: { createdAt: { gte: dayAgo } } })) >= cap) {
+      throw tooMany('Şu an kod gönderilemiyor. Lütfen daha sonra tekrar deneyin.');
+    }
+
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const row = await this.prisma.otpCode.create({
+      data: {
+        phone,
+        tcHash,
+        codeHash: this.h(`otp:${phone}`, code),
+        ip: ctx.ip,
+        expiresAt: new Date(now + OTP_TTL_MS),
+      },
+      select: { id: true },
+    });
+
+    try {
+      await this.sms.send(phone, `RoasteryClub giriş kodunuz: ${code}. Kimseyle paylaşmayın.`);
+    } catch (e) {
+      await this.prisma.otpCode.delete({ where: { id: row.id } }).catch(() => undefined);
+      throw e;
+    }
+    return { expiresInSec: OTP_TTL_MS / 1000 };
+  }
+
+  /** 2. adım: SMS kodu doğrulanır; yeni numara ise kullanıcı oluşturulur (üyelik onayı bekler). */
+  async verifyOtp(tcRaw: string, phoneRaw: string, code: string, ctx: Ctx): Promise<SessionResult> {
+    const { tc, phone } = this.parseIdentity(tcRaw, phoneRaw);
+    const tcHash = this.h('tc', tc);
+    const invalid = new BadRequestException('Kod hatalı veya süresi dolmuş.');
+
+    const otp = await this.prisma.otpCode.findFirst({
+      where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!otp || otp.attempts >= OTP_MAX_ATTEMPTS) throw invalid;
+
+    const ok =
+      this.safeEq(otp.codeHash, this.h(`otp:${phone}`, code)) && this.safeEq(otp.tcHash, tcHash);
+    if (!ok) {
+      await this.prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
+      throw invalid;
+    }
+    // Tek kullanımlık: eşzamanlı iki doğrulamadan yalnızca biri geçer.
+    const claimed = await this.prisma.otpCode.updateMany({
+      where: { id: otp.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw invalid;
+
+    let user = await this.prisma.user.findUnique({ where: { phone } });
+    if (user && !user.isActive) throw new ForbiddenException('Bu hesap devre dışı.');
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { provider: 'phone', providerUserId: phone, phone, tcHash },
+      });
+    } else if (!user.tcHash) {
+      // Eski (Google/Apple) hesap: numara SMS ile kanıtlandı, TC ilk girişte bağlanır.
+      user = await this.prisma.user.update({ where: { id: user.id }, data: { tcHash } });
+    }
+
+    if (this.adminPhones().includes(phone)) await this.ensureProducerAdmin(user.id);
+
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    const activeCount = await this.prisma.membership.count({
+      where: { userId: user.id, status: 'active' },
+    });
 
     const pair = await this.tokens.issuePair(user.id, ctx);
-    const state: 'active' | 'pending' = user.memberships.length > 0 ? 'active' : 'pending';
-
     return {
       accessToken: pair.accessToken,
       refreshToken: pair.refreshToken,
       refreshExpiresAt: pair.refreshExpiresAt.toISOString(),
-      state,
+      state: activeCount > 0 ? 'active' : 'pending',
       user: { id: user.id, phone: user.phone, fullName: user.fullName },
     };
+  }
+
+  /** ADMIN_PHONES'taki numara üretici org'unda yönetici olur (ilk yönetici için elle DB işi gerekmez). */
+  private async ensureProducerAdmin(userId: string): Promise<void> {
+    const org = await this.prisma.organization.findUnique({ where: { slug: 'roasteryclub' } });
+    if (!org) return;
+    await this.prisma.membership.upsert({
+      where: { userId_orgId_role: { userId, orgId: org.id, role: 'producer_admin' } },
+      update: { status: 'active' },
+      create: { userId, orgId: org.id, role: 'producer_admin', status: 'active' },
+    });
   }
 
   /**
@@ -152,14 +302,15 @@ export class AuthService {
     };
   }
 
-  /** Google/Apple ile ilk girişten sonra, üyelik bekleyen kullanıcının doldurduğu kayıt formu. */
+  /** İlk girişten sonra, üyelik bekleyen kullanıcının doldurduğu kayıt formu. Telefon SMS ile doğrulanmıştır. */
   async submitMembershipRequest(
     userId: string,
     register: MembershipRequestInfo,
     ctx: Ctx,
   ): Promise<{ ok: true }> {
-    const e164 = toE164TR(register.phone);
-    if (!e164) throw new BadRequestException('Geçerli bir Türkiye cep telefonu girin.');
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { phone: true } });
+    const phone = user?.phone ?? (register.phone ? toE164TR(register.phone) : null);
+    if (!phone) throw new BadRequestException('Geçerli bir Türkiye cep telefonu girin.');
 
     const existing = await this.prisma.membershipRequest.findFirst({
       where: { userId, status: 'pending' },
@@ -167,17 +318,14 @@ export class AuthService {
     if (existing) throw new BadRequestException('Zaten bekleyen bir başvurunuz var.');
 
     await this.prisma.$transaction(async (tx) => {
-      // users.phone benzersiz. Numara başka bir hesapta kayıtlıysa (örn. aynı kişinin
-      // farklı bir girişi) başvuruyu yine kabul ederiz: numara başvuruda duruyor ve
-      // yönetici telefonla doğrularken çakışmayı görür.
-      const owner = await tx.user.findUnique({ where: { phone: e164 }, select: { id: true } });
-      if (!owner || owner.id === userId) {
-        await tx.user.update({ where: { id: userId }, data: { phone: e164 } });
+      if (!user?.phone) {
+        const owner = await tx.user.findUnique({ where: { phone }, select: { id: true } });
+        if (!owner) await tx.user.update({ where: { id: userId }, data: { phone } });
       }
       await tx.membershipRequest.create({
         data: {
           userId,
-          phone: e164,
+          phone,
           requestedOrgName: register.orgName,
           requestedRole: 'customer_admin',
           note: register.note,

@@ -2,7 +2,7 @@
 
 Bu belge "sistem şu an nasıl çalışıyor ve nasıl ayağa kaldırılır"ı tutar. Mimari kararlar için `MIMARI.md`, ürün kapsamı için `SPEC.md`.
 
-> Son güncelleme: 2026-11-10. Uygulama daha önce Firebase üzerinde çalışıyordu; bu repo onun yeniden yazımıdır (Postgres + NestJS/tRPC + tek Expo uygulaması).
+> Son güncelleme: 2026-11-11. Uygulama daha önce Firebase üzerinde çalışıyordu; bu repo onun yeniden yazımıdır (Postgres + NestJS/tRPC + tek Expo uygulaması).
 
 ## Canlı bileşenler
 
@@ -17,11 +17,15 @@ Bu belge "sistem şu an nasıl çalışıyor ve nasıl ayağa kaldırılır"ı t
 
 ## Kimlik doğrulama (güncel)
 
-- **Yalnızca Google ve Apple ile giriş.** Telefon/OTP/SMS yok.
-- Kullanıcı kimliği `(provider, providerUserId)` çiftidir; aynı kişi Google ve Apple ile ayrı iki kullanıcı olur (e-posta ile birleştirme henüz yok).
-- Yeni kullanıcı `pending` durumundadır ve kayıt formunu gönderir (`auth.submitMembershipRequest`; telefon E.164, SMS ile doğrulanmaz). Üretici tarafı **Başvurular** sekmesinden onaylar (`membership.review`) → firma + şube + üyelik açılır.
-- **Demo girişi:** `auth.demoLogin`, yalnızca Render'da `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa açıktır. Hız sınırlı, sabit zamanlı karşılaştırma. Admin kodu gerçek `producer_admin` verisine erişir; müşteri kodu "Demo Kafe" firmasına girer. Apple incelemesine **yalnızca müşteri kodu** verilir.
-- Bilinen eksik: ilk üretici yöneticisi üyeliği elle (seed/DB) açılıyor; `ADMIN_EMAILS` ile otomatik yönetici ve Google↔Apple hesap birleştirme önerildi, yapılmadı.
+- **T.C. kimlik no + telefon + SMS kodu.** Google/Apple girişi kaldırıldı (2026-11-11).
+- Akış: kullanıcı TC ve telefonunu girer → `auth.requestOtp` telefona 6 haneli kod yollar (5 dk geçerli, 5 yanlış denemede kod yanar, tek kullanımlık) → `auth.verifyOtp` oturum verir. Kod oturumun "şifresidir"; ayrı şifre yok.
+- TC yalnızca **biçim** olarak doğrulanır (11 hane + sağlama); NVİ ile sorgulanmaz. Düz TC saklanmaz, HMAC özeti (`users.tcHash`) tutulur. Numara kayıtlıyken farklı TC ile istek gelirse SMS gönderilmez.
+- Yeni numara `pending` kullanıcı olur, firma formunu doldurur (`auth.submitMembershipRequest`; telefon zaten SMS ile doğrulanmıştır), üretici tarafı **Başvurular** sekmesinden onaylar (`membership.review`).
+- **İlk yönetici:** `ADMIN_PHONES` içindeki numara SMS ile girince `roasteryclub` org'unda `producer_admin` olur (elle DB işi yok).
+- Eski Google/Apple kullanıcıları telefon numarası kayıtlıysa aynı numarayla girebilir; TC ilk girişte bağlanır.
+- **SMS maliyet koruması:** numara başına 60 sn aralık ve saatte 5 kod, IP başına saatte 20 istek, günlük toplam tavan (`OTP_DAILY_CAP`, varsayılan 200). Netgsm ön ödemeli kontörle çalışır; bakiye bitince gönderim durur, borçlanma olmaz.
+- **SMS sağlayıcısı:** Netgsm (`NETGSM_USERCODE`, `NETGSM_PASSWORD`, `NETGSM_HEADER` — onaylı mesaj başlığı gerekir). Tanımlı değilse üretimde kod gönderilemez; demo girişi çalışmaya devam eder. Netgsm istemcisi gerçek hesapla henüz denenmedi.
+- **Demo girişi:** `auth.demoLogin`, yalnızca Render'da `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa açıktır. Web derlemesinde tek giriş yoludur. Apple incelemesine **yalnızca müşteri kodu** verilir.
 
 ## Ortam değişkenleri
 
@@ -33,15 +37,17 @@ API (Render panelinde `sync: false` olanlar elle girilir):
 |---|---|
 | `DATABASE_URL` / `DIRECT_URL` | Neon pooled / direct bağlantı |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | ≥16 karakter |
-| `GOOGLE_MOBILE_CLIENT_ID` / `GOOGLE_ADMIN_CLIENT_ID` | Google token `aud` doğrulaması |
-| `APPLE_BUNDLE_ID` | `com.roasteryclub.app` |
+| `NETGSM_USERCODE` / `NETGSM_PASSWORD` / `NETGSM_HEADER` | SMS sağlayıcısı; üçü birlikte |
+| `ADMIN_PHONES` | İlk yönetici telefon(lar)ı, virgülle (`+905...`) |
+| `TC_HASH_SECRET` | İsteğe bağlı (≥16 karakter); boşsa `JWT_REFRESH_SECRET`. Sonradan değiştirilirse kayıtlı TC özetleri eşleşmez |
+| `OTP_DAILY_CAP` | Günlük toplam SMS tavanı (varsayılan 200) |
 | `ADMIN_URL` | CORS için tek URL |
 | `WEB_URL` | İsteğe bağlı; web derlemesinin origin'i (`https://husnytarik.github.io`) |
 | `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` | İsteğe bağlı; demo girişi. Boşsa demo kapalıdır |
 | `EXPO_ACCESS_TOKEN` | İsteğe bağlı; Expo Push |
 | `SENTRY_DSN` | İsteğe bağlı |
 
-Mobil: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `GOOGLE_IOS_URL_SCHEME`.
+Mobil: yalnızca `EXPO_PUBLIC_API_URL`.
 
 ## Yerelde çalıştırma
 
@@ -62,7 +68,7 @@ Mobil, `@rc/api/app-router` tiplerini derlenmiş `dist`'ten okur; API şemasın�
 
 - **JS değişikliği → OTA:** `eas update --branch production`. Uygulamayı kapatıp iki kez açmak gerekir (indir → uygula).
 - **Native değişiklik / yeni binary → iOS:** GitHub Actions "Mobil iOS build" (macOS, `eas build --local`, build numarası = run numarası) TestFlight'a gönderir. Submit adımı sık sık "Scheduled iOS submission" sonrası ~10 dk takılıp zaman aşımına uğrar; build yine de TestFlight'a ulaşır.
-- **API:** `main`'e push → Render otomatik deploy. Migration'lar `prisma migrate deploy`.
+- **API:** `main`'e push → Render otomatik deploy; build komutu `prisma migrate deploy` çalıştırır.
 - **Web:** GitHub Actions "web-deploy" (yalnızca elle tetiklenir) → `expo export --platform web` → Pages. Web'de Excel içe/dışa aktarım ve push çalışmaz.
 - Android: imza ve build hazırlığı sürüyor (release imza sırları izlenen dosyalardan çıkarıldı).
 
@@ -81,9 +87,9 @@ Mobil, `@rc/api/app-router` tiplerini derlenmiş `dist`'ten okur; API şemasın�
 
 ## Sıradaki iş
 
+- Netgsm hesabı + onaylı başlık, Render'a `NETGSM_*` ve `ADMIN_PHONES` girilmesi; SMS istemcisinin gerçek hesapla denenmesi
 - Şube yönetimi arayüzü
 - Duyurularda müşteri grubu seçici
-- `ADMIN_EMAILS` ile yönetici bootstrap'i + Google/Apple hesap birleştirme
 - App Store yayın hazırlığı (ekran görüntüleri, gizlilik bilgisi, inceleme notları)
 - Android build ve Play Console
 - Render ücretsiz plan uykusu için keep-alive (`/health`'e UptimeRobot, ücretsiz)

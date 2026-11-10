@@ -1,22 +1,31 @@
 import { z } from 'zod';
 import type { AuthService } from '../../auth/auth.service';
-import { membershipRequestSchema, oauthLoginSchema, refreshSchema } from '../../auth/auth.schemas';
+import {
+  membershipRequestSchema,
+  refreshSchema,
+  requestOtpSchema,
+  verifyOtpSchema,
+} from '../../auth/auth.schemas';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 
 export function makeAuthRouter(auth: AuthService) {
   return router({
-    oauthLogin: publicProcedure
-      .input(oauthLoginSchema)
-      .mutation(({ input, ctx }) =>
-        auth.oauthLogin(input.provider, input.idToken, ctx.reqInfo, input.fullName),
-      ),
+    /** T.C. kimlik no + telefon → telefona 6 haneli SMS kodu gönderir. */
+    requestOtp: publicProcedure
+      .input(requestOtpSchema)
+      .mutation(({ input, ctx }) => auth.requestOtp(input.tc, input.phone, ctx.reqInfo)),
+
+    /** TC + telefon + SMS kodu → oturum. Yeni numara ise hesap açılır ve üyelik onayı beklenir. */
+    verifyOtp: publicProcedure
+      .input(verifyOtpSchema)
+      .mutation(({ input, ctx }) => auth.verifyOtp(input.tc, input.phone, input.code, ctx.reqInfo)),
 
     /** Gizli kodla demo girişi; sunucuda kod tanımlı değilse kapalıdır. */
     demoLogin: publicProcedure
       .input(z.object({ code: z.string().min(4).max(100) }))
       .mutation(({ input, ctx }) => auth.demoLogin(input.code, ctx.reqInfo)),
 
-    /** Google/Apple ile ilk giriş sonrası, üyeliği bekleyen kullanıcının kayıt formu. */
+    /** İlk girişten sonra, üyeliği bekleyen kullanıcının kayıt formu. */
     submitMembershipRequest: protectedProcedure
       .input(membershipRequestSchema)
       .mutation(({ input, ctx }) => auth.submitMembershipRequest(ctx.user.id, input, ctx.reqInfo)),

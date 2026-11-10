@@ -1,25 +1,12 @@
 import type { ExpoConfig } from 'expo/config';
 
 /**
- * RoasteryClub mobil — tek uygulama, tüm roller (müşteri/admin/personel),
- * Google/Apple ile giriş (telefon numarası kayıt formunda toplanır, admin
- * telefonla doğrular). Bundle id, App Store Connect'teki yayınlı "RoasteryClub"
+ * RoasteryClub mobil — tek uygulama, tüm roller (müşteri/admin/personel).
+ * Giriş: T.C. kimlik no + telefon + SMS kodu; yeni kullanıcılar firma bilgisiyle
+ * başvurur, yönetici onaylar. Bundle id, App Store Connect'teki yayınlı "RoasteryClub"
  * kaydıyla (Apple ID 6752270952) eşleşecek şekilde ayarlandı — bu build oraya
  * güncelleme olarak gidiyor, yeni bir uygulama kaydı değil.
- *
- * GOOGLE_IOS_URL_SCHEME: Google Cloud Console'daki iOS OAuth client'ının
- * "reversed client ID"si (örn. com.googleusercontent.apps.XXXX) — .env'e
- * eklenip burada okunmalı. Boşken plugin'i hiç eklemiyoruz; google-signin'in
- * kendi plugin'i bu değer boş string bile olsa hard-fail veriyor, bu da
- * Google Cloud client'ları oluşturulana kadar `expo config`/prebuild'i kırardı.
  */
-const googleSigninPlugin: [string, { iosUrlScheme: string }] | null = process.env
-  .GOOGLE_IOS_URL_SCHEME
-  ? [
-      '@react-native-google-signin/google-signin',
-      { iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME },
-    ]
-  : null;
 
 const config: ExpoConfig = {
   name: 'RoasteryClub',
@@ -42,7 +29,6 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // CI'da GitHub çalıştırma numarası verilir (her build'de artar → "duplicate build" olmaz)
     buildNumber: process.env.IOS_BUILD_NUMBER ?? '3',
-    usesAppleSignIn: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -73,9 +59,7 @@ const config: ExpoConfig = {
 
   plugins: [
     'expo-router',
-    'expo-apple-authentication',
     'expo-notifications',
-    ...(googleSigninPlugin ? [googleSigninPlugin] : []),
   ],
 
   // WEB_BASE_URL: GitHub Pages alt yolu (örn. /rc-platform). Yalnız web derlemesini etkiler.

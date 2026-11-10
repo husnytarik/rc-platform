@@ -13,13 +13,11 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@rc/shared": "workspace:*",
-    "@react-native-google-signin/google-signin": "^16.1.5",
     "@tanstack/react-query": "^5.62.7",
     "@trpc/client": "^11.18.0",
     "@trpc/react-query": "^11.18.0",
     "@trpc/server": "^11.18.0",
     "expo": "^54.0.0",
-    "expo-apple-authentication": "~8.0.8",
     "expo-constants": "~18.0.14",
     "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~14.0.8",

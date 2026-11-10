@@ -8,7 +8,7 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile --prod=false && pnpm --filter @rc/shared run build && pnpm --filter @rc/api run prisma:generate && pnpm --filter @rc/api run build
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile --prod=false && pnpm --filter @rc/shared run build && pnpm --filter @rc/api run prisma:generate && pnpm --filter @rc/api exec prisma migrate deploy && pnpm --filter @rc/api run build
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /health
     envVars:
@@ -28,12 +28,22 @@ services:
         value: 15m
       - key: JWT_REFRESH_TTL_DAYS
         value: "75"
-      - key: GOOGLE_MOBILE_CLIENT_ID
+      # SMS ile giriş (Netgsm). Üçü birlikte tanımlanmalı; yoksa üretimde kod gönderilemez.
+      - key: NETGSM_USERCODE
         sync: false
-      - key: GOOGLE_ADMIN_CLIENT_ID
+      - key: NETGSM_PASSWORD
         sync: false
-      - key: APPLE_BUNDLE_ID
-        value: com.roasteryclub.app
+      - key: NETGSM_HEADER
+        sync: false
+      # İlk yönetici(ler): virgülle ayrılmış telefonlar (+905xxxxxxxxx). Bu numara SMS ile girince üretici yöneticisi olur.
+      - key: ADMIN_PHONES
+        sync: false
+      # TC özetleri için ayrı sır (>=16 karakter). Boşsa JWT_REFRESH_SECRET kullanılır; sonradan değiştirmeyin.
+      - key: TC_HASH_SECRET
+        sync: false
+      # Günlük toplam SMS tavanı (fatura koruması). Boşsa 200.
+      - key: OTP_DAILY_CAP
+        value: "200"
       - key: DEMO_ADMIN_CODE
         sync: false
       - key: DEMO_CUSTOMER_CODE

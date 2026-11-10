@@ -5,3 +5,4 @@ export * from './phone';
 export * from './service-request-state';
 export * from './theme';
 export * from './uom';
+export * from './tc';

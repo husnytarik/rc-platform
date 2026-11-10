@@ -53,7 +53,7 @@ export default function LoginWeb() {
           {demo.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Giriş yap</Text>}
         </TouchableOpacity>
         {error && <Text style={styles.error}>{error}</Text>}
-        <Text style={styles.note}>Gerçek hesapla giriş (Google/Apple) mobil uygulamadadır.</Text>
+        <Text style={styles.note}>Gerçek hesapla giriş (T.C. kimlik + SMS kodu) mobil uygulamadadır.</Text>
       </View>
     </View>
   );
