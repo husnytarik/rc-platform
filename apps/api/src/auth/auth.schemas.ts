@@ -9,7 +9,8 @@ export const requestOtpSchema = z.object({ tc: tcField, phone: phoneField });
 export const verifyOtpSchema = z.object({
   tc: tcField,
   phone: phoneField,
-  code: z.string().regex(/^\d{6}$/, 'Kod 6 haneli olmalı.'),
+  // Müşteri: 6 haneli SMS kodu. Yönetici (SMS_MOCK modunda): ADMIN_PASSWORD.
+  code: z.string().min(6).max(64),
 });
 
 /** Telefon artık SMS ile doğrulanmış oturumdan gelir; eski istemciler için isteğe bağlı kalır. */

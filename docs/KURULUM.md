@@ -23,6 +23,7 @@ Bu belge "sistem şu an nasıl çalışıyor ve nasıl ayağa kaldırılır"ı t
 - Yeni numara `pending` kullanıcı olur, firma formunu doldurur (`auth.submitMembershipRequest`; telefon zaten SMS ile doğrulanmıştır), üretici tarafı **Başvurular** sekmesinden onaylar (`membership.review`).
 - **İlk yönetici:** `ADMIN_PHONES` içindeki numara SMS ile girince `roasteryclub` org'unda `producer_admin` olur (elle DB işi yok).
 - Eski Google/Apple kullanıcıları telefon numarası kayıtlıysa aynı numarayla girebilir; TC ilk girişte bağlanır.
+- **Geçici SMS-siz mod (`SMS_MOCK=true`, Netgsm tanımlı değilken):** SMS gitmez; müşteri için kod sunucudan döner ve uygulama alanı otomatik doldurur (yani TC + telefon bilen kişi o hesaba girebilir — kabul edilmiş geçici risk). `ADMIN_PHONES` numarası ise kod yerine `ADMIN_PASSWORD` ister (Render'da, ≥8 karakter; tanımsızsa yönetici girişi kapalı). Netgsm tanımlanınca mock otomatik kapanır.
 - **SMS maliyet koruması:** numara başına 60 sn aralık ve saatte 5 kod, IP başına saatte 20 istek, günlük toplam tavan (`OTP_DAILY_CAP`, varsayılan 200). Netgsm ön ödemeli kontörle çalışır; bakiye bitince gönderim durur, borçlanma olmaz.
 - **SMS sağlayıcısı:** Netgsm (`NETGSM_USERCODE`, `NETGSM_PASSWORD`, `NETGSM_HEADER` — onaylı mesaj başlığı gerekir). Tanımlı değilse üretimde kod gönderilemez; demo girişi çalışmaya devam eder. Netgsm istemcisi gerçek hesapla henüz denenmedi.
 - **Demo girişi:** `auth.demoLogin`, yalnızca Render'da `DEMO_ADMIN_CODE` / `DEMO_CUSTOMER_CODE` tanımlıysa açıktır. Web derlemesinde tek giriş yoludur. Apple incelemesine **yalnızca müşteri kodu** verilir.
@@ -40,6 +41,7 @@ API (Render panelinde `sync: false` olanlar elle girilir):
 | `NETGSM_USERCODE` / `NETGSM_PASSWORD` / `NETGSM_HEADER` | SMS sağlayıcısı; üçü birlikte |
 | `ADMIN_PHONES` | İlk yönetici telefon(lar)ı, virgülle (`+905...`) |
 | `TC_HASH_SECRET` | İsteğe bağlı (≥16 karakter); boşsa `JWT_REFRESH_SECRET`. Sonradan değiştirilirse kayıtlı TC özetleri eşleşmez |
+| `SMS_MOCK` / `ADMIN_PASSWORD` | Netgsm yokken geçici mod (`true`) ve yönetici şifresi (≥8) |
 | `OTP_DAILY_CAP` | Günlük toplam SMS tavanı (varsayılan 200) |
 | `ADMIN_URL` | CORS için tek URL |
 | `WEB_URL` | İsteğe bağlı; web derlemesinin origin'i (`https://husnytarik.github.io`) |

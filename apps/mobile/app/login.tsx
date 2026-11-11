@@ -31,6 +31,7 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(false);
   const [wait, setWait] = useState(0);
   const requestOtp = trpc.auth.requestOtp.useMutation();
   const verifyOtp = trpc.auth.verifyOtp.useMutation();
@@ -48,6 +49,7 @@ export default function LoginScreen() {
 
   const tcOk = isValidTcKimlik(tc);
   const phoneOk = toE164TR(phone) !== null;
+  const codeReady = needsPassword ? code.length >= 6 : code.length === 6;
   const busy = requestOtp.isPending || verifyOtp.isPending || demoLogin.isPending;
 
   const sendCode = (): void => {
@@ -55,9 +57,12 @@ export default function LoginScreen() {
     requestOtp.mutate(
       { tc: normalizeTc(tc), phone: phone.trim() },
       {
-        onSuccess: () => {
+        onSuccess: (r) => {
           setCodeSent(true);
-          setCode('');
+          // SMS sağlayıcısı yokken (mock): müşteri kodu sunucudan gelir ve alan otomatik dolar;
+          // yönetici numarası için kod yerine yönetici şifresi girilir.
+          setNeedsPassword(r.needsPassword === true);
+          setCode(r.devCode ?? '');
           setWait(RESEND_SECONDS);
         },
         onError: (e: unknown) => setError(errText(e, 'Kod gönderilemedi. Tekrar dener misin?')),
@@ -113,7 +118,9 @@ export default function LoginScreen() {
           <Text style={styles.sheetTitle}>Giriş yap</Text>
           <Text style={styles.sheetSubtitle}>
             {codeSent
-              ? 'Telefonuna gelen 6 haneli kodu gir.'
+              ? needsPassword
+                ? 'Yönetici şifreni gir.'
+                : 'Telefonuna gelen 6 haneli kodu gir.'
               : 'T.C. kimlik numaranı ve telefonunu gir, sana SMS ile bir kod gönderelim.'}
           </Text>
 
@@ -141,16 +148,19 @@ export default function LoginScreen() {
               <TextInput
                 style={[styles.input, styles.codeInput]}
                 value={code}
-                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-                placeholder="______"
+                onChangeText={(v) => setCode(needsPassword ? v.slice(0, 64) : v.replace(/\D/g, '').slice(0, 6))}
+                placeholder={needsPassword ? 'Yönetici şifresi' : '______'}
                 placeholderTextColor={colors.inkFaint}
-                keyboardType="number-pad"
-                maxLength={6}
+                keyboardType={needsPassword ? 'default' : 'number-pad'}
+                maxLength={needsPassword ? 64 : 6}
                 autoFocus
-                textContentType="oneTimeCode"
-                autoComplete="sms-otp"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry={needsPassword}
+                textContentType={needsPassword ? 'password' : 'oneTimeCode'}
+                autoComplete={needsPassword ? 'current-password' : 'sms-otp'}
                 editable={!busy}
-                onSubmitEditing={() => code.length === 6 && !busy && submitCode()}
+                onSubmitEditing={() => codeReady && !busy && submitCode()}
               />
             )}
           </View>
@@ -166,8 +176,8 @@ export default function LoginScreen() {
           ) : (
             <>
               <TouchableOpacity
-                style={[styles.primary, (code.length !== 6 || busy) && styles.disabled]}
-                disabled={code.length !== 6 || busy}
+                style={[styles.primary, (!codeReady || busy) && styles.disabled]}
+                disabled={!codeReady || busy}
                 onPress={submitCode}
               >
                 <Text style={styles.primaryText}>Giriş yap</Text>
@@ -182,6 +192,7 @@ export default function LoginScreen() {
                   disabled={busy}
                   onPress={() => {
                     setCodeSent(false);
+                    setNeedsPassword(false);
                     setCode('');
                     setError(null);
                   }}

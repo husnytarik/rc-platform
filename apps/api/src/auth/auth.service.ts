@@ -29,6 +29,16 @@ export interface MembershipRequestInfo {
   note?: string;
 }
 
+export interface RequestOtpResult {
+  expiresInSec: number;
+  /** SMS_MOCK modu: gerçek SMS gitmedi. */
+  mock?: boolean;
+  /** Mock modunda müşteri için kod (uygulama alana otomatik doldurur). Yönetici için yok. */
+  devCode?: string;
+  /** Mock modunda yönetici numarası: kod yerine yönetici şifresi istenir. */
+  needsPassword?: boolean;
+}
+
 export interface SessionResult {
   accessToken: string;
   refreshToken: string;
@@ -106,7 +116,7 @@ export class AuthService {
    * SMS maliyeti ve kötüye kullanım için: IP/numara limitleri ve günlük toplam tavan uygulanır;
    * kayıtlı bir numara farklı bir TC ile denenirse SMS gönderilmez.
    */
-  async requestOtp(tcRaw: string, phoneRaw: string, ctx: Ctx): Promise<{ expiresInSec: number }> {
+  async requestOtp(tcRaw: string, phoneRaw: string, ctx: Ctx): Promise<RequestOtpResult> {
     const { tc, phone } = this.parseIdentity(tcRaw, phoneRaw);
     const tcHash = this.h('tc', tc);
     const now = Date.now();
@@ -150,17 +160,32 @@ export class AuthService {
       throw tooMany('Şu an kod gönderilemiyor. Lütfen daha sonra tekrar deneyin.');
     }
 
+    // SMS sağlayıcısı yokken geçici mod (SMS_MOCK=true): SMS gitmez, müşteri kodu uygulamaya döner.
+    // Yönetici numarası için kod yerine ADMIN_PASSWORD gerekir. Netgsm tanımlanınca otomatik kapanır.
+    const mock = !this.sms.configured && process.env.SMS_MOCK === 'true';
+    const isAdminPhone = this.adminPhones().includes(phone);
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (mock && isAdminPhone && !adminPassword) {
+      throw new ForbiddenException('Yönetici girişi henüz yapılandırılmadı.');
+    }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const secret = mock && isAdminPhone ? adminPassword! : code;
     const row = await this.prisma.otpCode.create({
       data: {
         phone,
         tcHash,
-        codeHash: this.h(`otp:${phone}`, code),
+        codeHash: this.h(`otp:${phone}`, secret),
         ip: ctx.ip,
         expiresAt: new Date(now + OTP_TTL_MS),
       },
       select: { id: true },
     });
+
+    if (mock) {
+      return isAdminPhone
+        ? { expiresInSec: OTP_TTL_MS / 1000, mock: true, needsPassword: true }
+        : { expiresInSec: OTP_TTL_MS / 1000, mock: true, devCode: code };
+    }
 
     try {
       await this.sms.send(phone, `RoasteryClub giriş kodunuz: ${code}. Kimseyle paylaşmayın.`);

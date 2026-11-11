@@ -115,3 +115,66 @@ describe('SMS ile giriş', () => {
     expect(otps).toHaveLength(0);
   });
 });
+
+describe('SMS_MOCK modu (SMS sağlayıcısı yokken)', () => {
+  const withEnv = async (env: Record<string, string>, fn: () => Promise<void>) => {
+    const old: Record<string, string | undefined> = {};
+    for (const k of Object.keys(env)) {
+      old[k] = process.env[k];
+      process.env[k] = env[k];
+    }
+    try {
+      await fn();
+    } finally {
+      for (const k of Object.keys(env)) {
+        if (old[k] === undefined) delete process.env[k];
+        else process.env[k] = old[k];
+      }
+    }
+  };
+
+  it('müşteri: SMS gitmez, kod cevapta döner ve giriş yapılır', async () => {
+    await withEnv({ SMS_MOCK: 'true' }, async () => {
+      const { svc, sms } = setup();
+      (svc as any).sms = { configured: false, send: sms.send };
+      const r = await svc.requestOtp(TC, PHONE, {});
+      expect(r.mock).toBe(true);
+      expect(r.devCode).toMatch(/^\d{6}$/);
+      expect(sms.send).not.toHaveBeenCalled();
+      const s = await svc.verifyOtp(TC, PHONE, r.devCode!, {});
+      expect(s.state).toBe('pending');
+    });
+  });
+
+  it('yönetici numarası: kod dönmez, yalnızca ADMIN_PASSWORD ile girer', async () => {
+    await withEnv({ SMS_MOCK: 'true', ADMIN_PHONES: E164, ADMIN_PASSWORD: 'gizli-sifre-1' }, async () => {
+      const { svc } = setup();
+      (svc as any).sms = { configured: false, send: vi.fn() };
+      const r = await svc.requestOtp(TC, PHONE, {});
+      expect(r.needsPassword).toBe(true);
+      expect(r.devCode).toBeUndefined();
+      await expect(svc.verifyOtp(TC, PHONE, '000000', {})).rejects.toThrow(/hatalı/);
+      const s = await svc.verifyOtp(TC, PHONE, 'gizli-sifre-1', {});
+      expect(s.user.phone).toBe(E164);
+    });
+  });
+
+  it('yönetici şifresi tanımsızsa yönetici numarası mock ile açılmaz', async () => {
+    await withEnv({ SMS_MOCK: 'true', ADMIN_PHONES: E164 }, async () => {
+      delete process.env.ADMIN_PASSWORD;
+      const { svc } = setup();
+      (svc as any).sms = { configured: false, send: vi.fn() };
+      await expect(svc.requestOtp(TC, PHONE, {})).rejects.toThrow(/yapılandırılmadı/);
+    });
+  });
+
+  it('SMS_MOCK yoksa eski davranış: sağlayıcı yok → hata', async () => {
+    await withEnv({ NODE_ENV: 'production' }, async () => {
+      delete process.env.SMS_MOCK;
+      const { svc } = setup();
+      const real = new (await import('./sms.service')).SmsService();
+      (svc as any).sms = real;
+      await expect(svc.requestOtp(TC, PHONE, {})).rejects.toThrow(/SMS servisi/);
+    });
+  });
+});

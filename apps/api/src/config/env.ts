@@ -31,6 +31,9 @@ const schema = z.object({
   NETGSM_HEADER: z.string().optional(),
   OTP_DAILY_CAP: z.coerce.number().int().positive().optional(),
   ADMIN_PHONES: z.string().optional(),
+  // SMS sağlayıcısı yokken geçici mod: SMS_MOCK=true → kod "gelmiş gibi" uygulamaya döner; yönetici ADMIN_PASSWORD ister.
+  SMS_MOCK: z.enum(['true', 'false']).optional(),
+  ADMIN_PASSWORD: z.string().min(8).optional(),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -38,6 +38,12 @@ services:
       # İlk yönetici(ler): virgülle ayrılmış telefonlar (+905xxxxxxxxx). Bu numara SMS ile girince üretici yöneticisi olur.
       - key: ADMIN_PHONES
         sync: false
+      # Netgsm yokken geçici mod: "true" → müşteri kodu uygulamaya döner (SMS gitmez). Netgsm tanımlanınca otomatik kapanır.
+      - key: SMS_MOCK
+        sync: false
+      # Mock modunda yönetici numarasının girişi için şifre (>=8 karakter).
+      - key: ADMIN_PASSWORD
+        sync: false
       # TC özetleri için ayrı sır (>=16 karakter). Boşsa JWT_REFRESH_SECRET kullanılır; sonradan değiştirmeyin.
       - key: TC_HASH_SECRET
         sync: false
