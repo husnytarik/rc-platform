@@ -168,7 +168,9 @@ export class AuthService {
     if (mock && isAdminPhone && !adminPassword) {
       throw new ForbiddenException('Yönetici girişi henüz yapılandırılmadı.');
     }
-    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    // Mock modunda müşteri kodu sabit (123456): uygulamanın eski sürümü alanı otomatik doldurmasa da elle girilebilir.
+    // Güvenlik farkı yok: kod zaten istek cevabında dönüyor. Yönetici ADMIN_PASSWORD ile girer.
+    const code = mock ? '123456' : String(randomInt(0, 1_000_000)).padStart(6, '0');
     const secret = mock && isAdminPhone ? adminPassword! : code;
     const row = await this.prisma.otpCode.create({
       data: {
