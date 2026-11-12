@@ -4,6 +4,7 @@ import { PRODUCER_NAV } from '@/nav';
 import { useAuth } from '@/providers/auth-context';
 import { colors } from '@/theme';
 import { HeaderActions } from '@/components/HeaderActions';
+import { tabIcon } from '@/components/TabIcon';
 import { StartupLoading } from '@/components/StartupLoading';
 
 export default function ProducerLayout() {
@@ -23,6 +24,9 @@ export default function ProducerLayout() {
         headerRight: () => <HeaderActions base="/producer" />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.inkFaint,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        headerTitleStyle: { fontWeight: '800' },
+        headerShadowVisible: false,
       }}
     >
       {/* Sekme sırası bildirim sırasıdır: önce birincil sekmeler, sonra "Daha fazla" */}
@@ -30,10 +34,10 @@ export default function ProducerLayout() {
         <Tabs.Screen
           key={item.key}
           name={item.key}
-          options={primary.includes(item) ? { title: item.label } : { href: null, title: item.label }}
+          options={primary.includes(item) ? { title: item.label, tabBarIcon: tabIcon(item.icon) } : { href: null, title: item.label }}
         />
       ))}
-      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla' }} />
+      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('☰') }} />
       {secondary.map((item) => (
         <Tabs.Screen key={item.key} name={item.key} options={{ href: null, title: item.label }} />
       ))}

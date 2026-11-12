@@ -1,8 +1,9 @@
 import { useRouter, type Href } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius, spacing } from '@/theme';
 
 export interface MoreMenuItem {
+  icon?: string;
   label: string;
   hint?: string;
   href: string;
@@ -15,8 +16,14 @@ export function MoreMenuScreen({ items }: { items: MoreMenuItem[] }) {
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       {items.map((it) => (
         <TouchableOpacity key={it.href} style={styles.row} onPress={() => router.push(it.href as Href)}>
-          <Text style={styles.label}>{it.label}</Text>
-          {it.hint && <Text style={styles.hint}>{it.hint}</Text>}
+          <View style={styles.iconBox}>
+            <Text style={styles.icon}>{it.icon ?? '•'}</Text>
+          </View>
+          <View style={styles.texts}>
+            <Text style={styles.label}>{it.label}</Text>
+            {it.hint && <Text style={styles.hint}>{it.hint}</Text>}
+          </View>
+          <Text style={styles.chev}>›</Text>
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -32,8 +39,14 @@ const styles = StyleSheet.create({
     padding: spacing(4),
     borderWidth: 1,
     borderColor: colors.border,
-    gap: spacing(0.5),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(3),
   },
+  iconBox: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  icon: { fontSize: 20 },
+  texts: { flex: 1, gap: 2 },
+  chev: { fontSize: 24, color: colors.inkFaint },
   label: { fontSize: 15, fontWeight: '700', color: colors.ink },
   hint: { fontSize: 12, color: colors.inkMuted },
 });

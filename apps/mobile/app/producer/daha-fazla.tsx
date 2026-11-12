@@ -5,6 +5,7 @@ import { useAuth } from '@/providers/auth-context';
 export default function DahaFazla() {
   const { can } = useAuth();
   const items = PRODUCER_NAV.filter((i) => !i.primary && can(i.cap)).map((i) => ({
+    icon: i.icon,
     label: i.label,
     hint: i.hint,
     href: i.href,
@@ -13,8 +14,8 @@ export default function DahaFazla() {
     <MoreMenuScreen
       items={[
         ...items,
-        { label: 'Bildirimler', hint: 'Sipariş ve talep bildirimleri', href: '/producer/bildirimler' },
-        { label: 'Hesap', hint: 'Profil, çıkış, hesabı sil', href: '/producer/hesap' },
+        { icon: '🔔', label: 'Bildirimler', hint: 'Sipariş ve talep bildirimleri', href: '/producer/bildirimler' },
+        { icon: '👤', label: 'Hesap', hint: 'Profil, çıkış, hesabı sil', href: '/producer/hesap' },
       ]}
     />
   );

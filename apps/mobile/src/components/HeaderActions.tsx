@@ -12,18 +12,33 @@ export function HeaderActions({ base }: { base: '/customer' | '/producer' }) {
   const count = unread.data ?? 0;
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 16 }}>
-      <TouchableOpacity onPress={() => router.push(`${base}/bildirimler` as Href)}>
-        <Text style={{ color: colors.accent, fontWeight: '600', fontSize: 14 }}>
-          Bildirim
-          {count > 0 && (
-            <Text style={{ color: colors.danger }}> ({count > 99 ? '99+' : count})</Text>
-          )}
-        </Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 14, gap: 6 }}>
+      <TouchableOpacity style={btn} onPress={() => router.push(`${base}/bildirimler` as Href)}>
+        <Text style={{ fontSize: 20 }}>🔔</Text>
+        {count > 0 && (
+          <View style={badge}>
+            <Text style={badgeText}>{count > 99 ? '99+' : count}</Text>
+          </View>
+        )}
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push(`${base}/hesap` as Href)}>
-        <Text style={{ color: colors.accent, fontWeight: '600', fontSize: 14 }}>Hesap</Text>
+      <TouchableOpacity style={btn} onPress={() => router.push(`${base}/hesap` as Href)}>
+        <Text style={{ fontSize: 20 }}>👤</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const btn = { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' } as const;
+const badge = {
+  position: 'absolute',
+  top: 2,
+  right: 0,
+  minWidth: 17,
+  height: 17,
+  borderRadius: 9,
+  backgroundColor: colors.danger,
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: 4,
+} as const;
+const badgeText = { color: '#fff', fontSize: 10, fontWeight: '800' } as const;
