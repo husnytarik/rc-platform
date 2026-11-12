@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
-import { useCart } from '@/providers/cart-context';
 import { colors, radius, spacing } from '@/theme';
 
 function displayName(identity: { fullName: string | null; phone: string | null }): string {
@@ -182,11 +181,10 @@ function CompanyCard({ orgId }: { orgId: string }) {
 
 export function AccountScreen() {
   const { identity, can, logout } = useAuth();
-  const cart = useCart();
   if (!identity) return null;
 
+  // Gönderilmemiş sipariş cihazda kullanıcı başına saklanır; çıkışta silinmez.
   const onLogout = (): void => {
-    cart.clear();
     logout();
   };
 

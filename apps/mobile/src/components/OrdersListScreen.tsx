@@ -1,6 +1,7 @@
 import { ORDER_STATUS_LABELS_TR, ORDER_STATUS_META, type OrderStatus } from '@rc/shared';
 import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { DraftOrderCard } from '@/components/DraftOrderCard';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -23,6 +24,7 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
       style={styles.flex}
       contentContainerStyle={styles.listContent}
       data={items}
+      ListHeaderComponent={basePath === '/customer/siparislerim' ? <DraftOrderCard /> : null}
       keyExtractor={(o) => o.id}
       refreshing={isFetching && !isFetchingNextPage}
       onRefresh={() => void refetch()}

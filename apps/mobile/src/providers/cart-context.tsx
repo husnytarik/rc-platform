@@ -1,4 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { draftStore } from '@/lib/draft-store';
+import { useAuth } from '@/providers/auth-context';
 
 export interface CartLine {
   variantId: string;
@@ -13,23 +15,65 @@ export interface CartLine {
   qty: number;
 }
 
-interface CartContextValue {
+/**
+ * Gönderilmemiş sipariş (taslak). Kullanıcıya "sepet" değil, "Gönderilmemiş sipariş" olarak görünür;
+ * "Siparişi gönder" ile onaylanınca gerçek siparişe dönüşür. Cihazda kullanıcı başına saklanır.
+ */
+interface DraftContextValue {
   lines: CartLine[];
   totalQty: number;
+  branchId: string | null;
+  note: string;
+  setBranchId: (id: string | null) => void;
+  setNote: (note: string) => void;
   addLine: (line: Omit<CartLine, 'qty'>, qty: number) => void;
   setQty: (variantId: string, qty: number) => void;
   removeLine: (variantId: string) => void;
+  /** Taslağı boşaltır ve cihazdan siler (gönderim sonrası veya "Taslağı sil"). */
   clear: () => void;
 }
 
-const CartContext = createContext<CartContextValue | null>(null);
+const CartContext = createContext<DraftContextValue | null>(null);
 
-/** Sepet, oturum belleğinde tutulur — sipariş gönderilince veya çıkış yapılınca temizlenir. */
 export function CartProvider({ children }: { children: ReactNode }): ReactNode {
+  const { identity } = useAuth();
+  const userId = identity?.id ?? null;
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [branchId, setBranchId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const loadedFor = useRef<string | null>(null);
 
-  const value = useMemo<CartContextValue>(() => {
-    const addLine: CartContextValue['addLine'] = (line, qty) => {
+  // Kullanıcı değişince o kullanıcının taslağını yükle; çıkışta belleği boşalt (dosya kalır).
+  useEffect(() => {
+    loadedFor.current = null;
+    setLines([]);
+    setBranchId(null);
+    setNote('');
+    if (!userId) return;
+    let cancelled = false;
+    void draftStore.load(userId).then((d) => {
+      if (cancelled) return;
+      if (d) {
+        setLines(Array.isArray(d.lines) ? (d.lines as CartLine[]) : []);
+        setBranchId(d.branchId ?? null);
+        setNote(d.note ?? '');
+      }
+      loadedFor.current = userId;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // Değişiklikleri cihaza yaz (yükleme bitmeden yazma: mevcut taslağı ezmesin).
+  useEffect(() => {
+    if (!userId || loadedFor.current !== userId) return;
+    if (lines.length === 0 && !note) void draftStore.clear(userId);
+    else void draftStore.save(userId, { lines, branchId, note });
+  }, [userId, lines, branchId, note]);
+
+  const value = useMemo<DraftContextValue>(() => {
+    const addLine: DraftContextValue['addLine'] = (line, qty) => {
       setLines((prev) => {
         const idx = prev.findIndex((l) => l.variantId === line.variantId);
         if (idx === -1) return [...prev, { ...line, qty }];
@@ -39,7 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }): ReactNode {
       });
     };
 
-    const setQty: CartContextValue['setQty'] = (variantId, qty) => {
+    const setQty: DraftContextValue['setQty'] = (variantId, qty) => {
       setLines((prev) =>
         qty <= 0
           ? prev.filter((l) => l.variantId !== variantId)
@@ -47,25 +91,33 @@ export function CartProvider({ children }: { children: ReactNode }): ReactNode {
       );
     };
 
-    const removeLine: CartContextValue['removeLine'] = (variantId) =>
+    const removeLine: DraftContextValue['removeLine'] = (variantId) =>
       setLines((prev) => prev.filter((l) => l.variantId !== variantId));
 
-    const clear = (): void => setLines([]);
+    const clear = (): void => {
+      setLines([]);
+      setNote('');
+      setBranchId(null);
+    };
 
     return {
       lines,
-      totalQty: lines.reduce((sum, l) => sum + l.qty, 0),
+      totalQty: lines.length,
+      branchId,
+      note,
+      setBranchId,
+      setNote,
       addLine,
       setQty,
       removeLine,
       clear,
     };
-  }, [lines]);
+  }, [lines, branchId, note]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
-export function useCart(): CartContextValue {
+export function useCart(): DraftContextValue {
   const ctx = useContext(CartContext);
   if (!ctx) throw new Error('useCart <CartProvider> içinde kullanılmalı');
   return ctx;

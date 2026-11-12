@@ -1,8 +1,7 @@
 import type { AppRouter } from '@rc/api/app-router';
 import type { inferRouterOutputs } from '@trpc/server';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { useCart, type CartLine } from '@/providers/cart-context';
 import { colors, radius, spacing } from '@/theme';
@@ -53,20 +52,19 @@ function CartRow({ line }: { line: CartLine }) {
   );
 }
 
-export function CartScreen() {
+/** Gönderilmemiş sipariş: katalogdan eklenenler burada bekler; "Siparişi gönder" ile gerçek siparişe dönüşür. */
+export function DraftOrderCard() {
   const cart = useCart();
-  const router = useRouter();
+  const utils = trpc.useUtils();
   const branches = trpc.orders.myBranches.useQuery();
-  const [branchId, setBranchId] = useState<string | null>(null);
-  const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const activeBranchId = branchId ?? branches.data?.[0]?.id ?? null;
+  const activeBranchId = cart.branchId ?? branches.data?.[0]?.id ?? null;
 
   const create = trpc.orders.create.useMutation({
     onSuccess: () => {
       cart.clear();
-      router.replace('/customer/siparislerim');
+      void utils.orders.list.invalidate();
     },
     onError: (e) => setError(errText(e, 'Sipariş gönderilemedi. Tekrar dener misin?')),
   });
@@ -79,21 +77,37 @@ export function CartScreen() {
     setError(null);
     create.mutate({
       branchId: activeBranchId,
-      note: note.trim() || undefined,
+      note: cart.note.trim() || undefined,
       lines: cart.lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
     });
   };
 
-  if (cart.lines.length === 0) {
-    return (
-      <View style={styles.flex}>
-        <Text style={styles.empty}>Sepetiniz boş.</Text>
-      </View>
-    );
-  }
+  const onDiscard = (): void => {
+    const run = (): void => cart.clear();
+    if (Platform.OS === 'web') run();
+    else Alert.alert('Taslağı sil', 'Gönderilmemiş sipariş silinsin mi?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Sil', style: 'destructive', onPress: run },
+    ]);
+  };
+
+  if (cart.lines.length === 0) return null;
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
+    <View style={styles.draft}>
+      <View style={styles.draftHeader}>
+        <View style={styles.draftBadge}>
+          <View style={styles.draftDot} />
+          <Text style={styles.draftBadgeText}>Gönderilmemiş sipariş</Text>
+        </View>
+        <TouchableOpacity onPress={onDiscard}>
+          <Text style={styles.removeText}>Taslağı sil</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.draftHint}>
+        Henüz gönderilmedi. Ürün eklemeye devam edebilir, hazır olunca “Siparişi gönder”e basabilirsin.
+      </Text>
+
       {error && (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -116,7 +130,7 @@ export function CartScreen() {
               <TouchableOpacity
                 key={b.id}
                 style={[styles.branchChip, b.id === activeBranchId && styles.branchChipActive]}
-                onPress={() => setBranchId(b.id)}
+                onPress={() => cart.setBranchId(b.id)}
               >
                 <Text style={[styles.branchChipText, b.id === activeBranchId && styles.branchChipTextActive]}>
                   {b.name}
@@ -133,8 +147,8 @@ export function CartScreen() {
         <Text style={styles.sectionLabel}>Not (opsiyonel)</Text>
         <TextInput
           style={styles.noteInput}
-          value={note}
-          onChangeText={setNote}
+          value={cart.note}
+          onChangeText={cart.setNote}
           placeholder="Sipariş notu"
           placeholderTextColor={colors.inkFaint}
           multiline
@@ -159,14 +173,35 @@ export function CartScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing(5), gap: spacing(5) },
-  empty: { textAlign: 'center', color: colors.inkMuted, marginTop: spacing(6) },
+  draft: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderStyle: 'dashed',
+    padding: spacing(3.5),
+    gap: spacing(4),
+    marginBottom: spacing(2.5),
+  },
+  draftHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  draftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(1.5),
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing(2.5),
+    paddingVertical: spacing(1),
+  },
+  draftDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
+  draftBadgeText: { fontSize: 12, fontWeight: '700', color: colors.accent },
+  draftHint: { fontSize: 12, color: colors.inkMuted, marginTop: -spacing(2) },
+  empty: { textAlign: 'center', color: colors.inkMuted },
   errorBox: { backgroundColor: colors.dangerSoft, borderRadius: radius.sm, padding: spacing(3) },
   errorText: { color: colors.danger, fontSize: 13 },
   section: { gap: spacing(2.5) },

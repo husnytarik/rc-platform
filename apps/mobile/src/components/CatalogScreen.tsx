@@ -34,6 +34,7 @@ function ProductCard({ productId, productName, categoryName, variants }: {
   const [variantId, setVariantId] = useState(variants[0]?.id);
   const variant = variants.find((v) => v.id === variantId) ?? variants[0];
   const [qty, setQty] = useState<number>(variant?.minOrderQty ?? 1);
+  const [added, setAdded] = useState(false);
 
   const selectVariant = (v: Variant): void => {
     setVariantId(v.id);
@@ -58,6 +59,8 @@ function ProductCard({ productId, productName, categoryName, variants }: {
       currency: variant.price?.currency ?? null,
     };
     cart.addLine(line, qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
   };
 
   return (
@@ -112,14 +115,14 @@ function ProductCard({ productId, productName, categoryName, variants }: {
           disabled={disabled}
           onPress={onAdd}
         >
-          <Text style={styles.addButtonText}>Sepete ekle</Text>
+          <Text style={styles.addButtonText}>{added ? 'Siparişe eklendi ✓' : 'Siparişe ekle'}</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-/** Ürün listesi — üretici ve müşteri tarafında aynı görünüm; fiyat/stok sunucu tarafından belirlenir. Sepete ekleme yalnızca müşteri rollerinde gösterilir. */
+/** Ürün listesi — üretici ve müşteri tarafında aynı görünüm; fiyat/stok sunucu tarafından belirlenir. Siparişe ekleme (gönderilmemiş sipariş) yalnızca müşteri rollerinde gösterilir. */
 export function CatalogScreen() {
   const { identity } = useAuth();
   const canOrder = identity?.roles.some(isCustomerRole) ?? false;

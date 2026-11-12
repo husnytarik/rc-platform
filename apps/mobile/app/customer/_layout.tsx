@@ -25,13 +25,13 @@ export default function CustomerLayout() {
       <Tabs.Screen name="index" options={{ title: 'Ana Sayfa' }} />
       <Tabs.Screen name="katalog" options={{ title: 'Katalog' }} />
       <Tabs.Screen
-        name="sepet"
+        name="siparislerim"
         options={{
-          title: 'Sepet',
+          title: 'Siparişlerim',
+          // Gönderilmemiş (taslak) siparişte bekleyen kalem sayısı.
           tabBarBadge: cart.totalQty > 0 ? cart.totalQty : undefined,
         }}
       />
-      <Tabs.Screen name="siparislerim" options={{ title: 'Siparişlerim' }} />
       <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla' }} />
       <Tabs.Screen name="servisler" options={{ href: null, title: 'Servisler' }} />
       <Tabs.Screen name="destek" options={{ href: null, title: 'Destek' }} />
