@@ -15,6 +15,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "db:migrate": "pnpm --filter @rc/api run prisma:migrate",
     "db:seed": "pnpm --filter @rc/api run db:seed",
+    "db:seed:demo": "pnpm --filter @rc/api run db:seed:demo",
     "db:studio": "pnpm --filter @rc/api run prisma:studio",
     "db:generate": "pnpm --filter @rc/api run prisma:generate"
   },
