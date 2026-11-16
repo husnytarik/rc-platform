@@ -254,8 +254,9 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity onPress={() => setDemoOpen(true)}>
-              <Text style={styles.demoLink}>Demo girişi</Text>
+            <TouchableOpacity style={styles.demoCta} onPress={() => setDemoOpen(true)}>
+              <Text style={styles.demoCtaText}>Demo ile gir</Text>
+              <Text style={styles.demoCtaSub}>Tüm rolleri dene: yönetici, satış, üretim, sevkiyat, müşteri</Text>
             </TouchableOpacity>
           )}
 
@@ -340,6 +341,17 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing(4) },
   link: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   linkDisabled: { color: colors.inkFaint },
+  demoCta: {
+    marginTop: spacing(5),
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(3.5),
+    alignItems: 'center',
+    gap: 2,
+  },
+  demoCtaText: { color: colors.accent, fontWeight: '800', fontSize: 15 },
+  demoCtaSub: { color: colors.inkMuted, fontSize: 11 },
   demoLink: {
     color: colors.inkMuted,
     fontSize: 13,
