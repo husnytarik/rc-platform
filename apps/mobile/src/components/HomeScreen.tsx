@@ -1,6 +1,7 @@
 import { ORDER_STATUS_LABELS_TR, ORDER_STATUS_META, type OrderStatus } from '@rc/shared';
 import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { TodayRecipeCard } from '@/components/RecipeScreens';
 import { useAuth } from '@/providers/auth-context';
 import { useCart } from '@/providers/cart-context';
 import { trpc } from '@/lib/trpc';
@@ -19,6 +20,7 @@ export function HomeScreen() {
   const router = useRouter();
   const { identity } = useAuth();
   const cart = useCart();
+  const utils = trpc.useUtils();
   const feed = trpc.announcement.feed.useQuery();
   const recent = trpc.orders.list.useQuery({ limit: 3 });
   const first = identity?.fullName?.split(' ')[0];
@@ -35,6 +37,7 @@ export function HomeScreen() {
           onRefresh={() => {
             void feed.refetch();
             void recent.refetch();
+            void utils.recipe.today.invalidate();
           }}
         />
       }
@@ -62,6 +65,8 @@ export function HomeScreen() {
           <Text style={styles.draftCta}>Gönder ›</Text>
         </TouchableOpacity>
       )}
+
+      <TodayRecipeCard base="/customer" />
 
       <View style={styles.tiles}>
         <Tile icon="📦" label="Siparişlerim" onPress={() => go('/customer/siparislerim')} />

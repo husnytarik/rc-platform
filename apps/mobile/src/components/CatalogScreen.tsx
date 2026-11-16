@@ -5,6 +5,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -24,8 +25,9 @@ const STOCK_LABEL_TR: Record<string, string> = {
   preorder: 'Ön sipariş',
 };
 
-function ProductCard({ productId, productName, categoryName, variants }: {
+function ProductCard({ productId, productName, categoryName, imageUrl, variants }: {
   productId: string;
+  imageUrl: string | null;
   productName: string;
   categoryName: string | null;
   variants: Variant[];
@@ -65,6 +67,7 @@ function ProductCard({ productId, productName, categoryName, variants }: {
 
   return (
     <View style={styles.card}>
+      {imageUrl && <Image source={{ uri: imageUrl }} style={styles.cardImg} resizeMode="cover" />}
       <Text style={styles.cardTitle}>{productName}</Text>
       <Text style={styles.cardMeta}>{categoryName ?? '—'}</Text>
 
@@ -171,6 +174,7 @@ export function CatalogScreen() {
         if (!canOrder || item.variants.length === 0) {
           return (
             <View style={styles.card}>
+              {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.cardImg} resizeMode="cover" />}
               <Text style={styles.cardTitle}>{item.name}</Text>
               <Text style={styles.cardMeta}>{item.categoryName ?? '—'}</Text>
               {item.variants.length === 0 && <Text style={styles.cardMeta}>Varyant yok</Text>}
@@ -190,6 +194,7 @@ export function CatalogScreen() {
             productId={item.id}
             productName={item.name}
             categoryName={item.categoryName}
+            imageUrl={item.imageUrl}
             variants={item.variants}
           />
         );
@@ -221,6 +226,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     gap: spacing(2),
   },
+  cardImg: { width: '100%', height: 150, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
   cardTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
   cardMeta: { fontSize: 12, color: colors.inkMuted, marginTop: -spacing(1) },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

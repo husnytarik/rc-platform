@@ -7,6 +7,7 @@ import { StockService } from '../catalog/stock.service';
 import { CustomerService } from '../customer/customer.service';
 import { AnnouncementService } from '../engage/announcement.service';
 import { NotificationService } from '../engage/notification.service';
+import { RecipeService } from '../engage/recipe.service';
 import { TicketService } from '../engage/ticket.service';
 import { MembershipService } from '../membership/membership.service';
 import { OrderService } from '../orders/order.service';
@@ -40,6 +41,7 @@ export class TrpcService {
     notifications: NotificationService,
     reports: ReportService,
     sheet: CatalogSheetService,
+    recipes: RecipeService,
   ) {
     this.appRouter = makeAppRouter({
       auth,
@@ -54,6 +56,7 @@ export class TrpcService {
       notifications,
       reports,
       sheet,
+      recipes,
     });
     this.createContext = makeCreateContext({ tokens, prisma });
   }

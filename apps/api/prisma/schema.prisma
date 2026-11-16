@@ -836,3 +836,27 @@ model OtpCode {
   @@index([createdAt])
   @@map("otp_codes")
 }
+
+// ── Reçeteler ("Günün reçetesi") ────────────────────────────────────────────
+
+model Recipe {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique
+  title       String
+  subtitle    String?
+  description String?
+  imageUrl    String?
+  category    String   // Espresso | Sütlü | Soğuk | Filtre | Tatlı | Geleneksel
+  prepMinutes Int      @default(5)
+  servings    Int      @default(1)
+  difficulty  String   @default("kolay") // kolay | orta | zor
+  ingredients Json     // string[]
+  steps       Json     // string[]
+  tip         String?
+  productCode String?  // önerilen ürün (Product.code)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("recipes")
+}

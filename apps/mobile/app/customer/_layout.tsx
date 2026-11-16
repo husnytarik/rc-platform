@@ -38,6 +38,7 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('☰') }} />
+      <Tabs.Screen name="tarifler" options={{ href: null, title: 'Reçeteler' }} />
       <Tabs.Screen name="servisler" options={{ href: null, title: 'Servisler' }} />
       <Tabs.Screen name="destek" options={{ href: null, title: 'Destek' }} />
       <Tabs.Screen name="bildirimler" options={{ href: null, title: 'Bildirimler' }} />

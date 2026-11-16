@@ -5,6 +5,7 @@ import type { StockService } from '../catalog/stock.service';
 import type { AnnouncementService } from '../engage/announcement.service';
 import type { NotificationService } from '../engage/notification.service';
 import type { ReportService } from '../report/report.service';
+import type { RecipeService } from '../engage/recipe.service';
 import type { TicketService } from '../engage/ticket.service';
 import type { CustomerService } from '../customer/customer.service';
 import type { MembershipService } from '../membership/membership.service';
@@ -13,6 +14,7 @@ import type { ServicesService } from '../services/services.service';
 import { makeAuthRouter } from './routers/auth.router';
 import { makeAnnouncementRouter } from './routers/announcement.router';
 import { makeNotificationRouter } from './routers/notification.router';
+import { makeRecipeRouter } from './routers/recipe.router';
 import { makeReportRouter } from './routers/report.router';
 import { makeSheetRouter } from './routers/sheet.router';
 import { makeTicketRouter } from './routers/ticket.router';
@@ -37,6 +39,7 @@ interface RouterDeps {
   notifications: NotificationService;
   reports: ReportService;
   sheet: CatalogSheetService;
+  recipes: RecipeService;
 }
 
 /**
@@ -57,6 +60,7 @@ export function makeAppRouter(deps: RouterDeps) {
     notification: makeNotificationRouter(deps.notifications),
     report: makeReportRouter(deps.reports),
     sheet: makeSheetRouter(deps.sheet),
+    recipe: makeRecipeRouter(deps.recipes),
   });
 }
 

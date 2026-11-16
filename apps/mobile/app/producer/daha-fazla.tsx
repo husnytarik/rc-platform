@@ -14,6 +14,7 @@ export default function DahaFazla() {
     <MoreMenuScreen
       items={[
         ...items,
+        { icon: '📖', label: 'Reçeteler', hint: 'Günün reçetesi ve barista tarifleri', href: '/producer/tarifler' },
         { icon: '🔔', label: 'Bildirimler', hint: 'Sipariş ve talep bildirimleri', href: '/producer/bildirimler' },
         { icon: '👤', label: 'Hesap', hint: 'Profil, çıkış, hesabı sil', href: '/producer/hesap' },
       ]}
