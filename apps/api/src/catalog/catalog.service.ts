@@ -232,6 +232,7 @@ export class CatalogService {
         code: p.code,
         name: p.name,
         categoryName: p.category?.name ?? null,
+        imageUrl: p.imageUrl,
         isActive: p.isActive,
         isService: p.isService,
         variantCount: p.variants.length,

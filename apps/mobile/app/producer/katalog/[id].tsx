@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -313,6 +314,7 @@ export default function UrunDuzenleScreen() {
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Görsel URL</Text>
+          {imageUrl.trim().startsWith('http') && <Image source={{ uri: imageUrl.trim() }} style={{ width: '100%', height: 160, borderRadius: radius.sm, marginBottom: spacing(2) }} resizeMode="cover" />}
           <TextInput style={styles.input} value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" keyboardType="url" placeholder="https://…" placeholderTextColor={colors.inkFaint} />
         </View>
         {categories.data && categories.data.length > 0 && (

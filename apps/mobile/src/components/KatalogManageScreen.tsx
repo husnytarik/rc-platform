@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -43,6 +43,7 @@ export function KatalogManageScreen() {
       renderItem={({ item }) => (
         <Link href={{ pathname: '/producer/katalog/[id]', params: { id: item.id } }} asChild>
           <TouchableOpacity style={styles.card}>
+            {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.cardImg} resizeMode="cover" />}
             <View style={styles.cardTop}>
               <Text style={styles.cardTitle}>{item.name}</Text>
               <View style={styles.badgeRow}>
@@ -88,6 +89,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     gap: spacing(1.5),
   },
+  cardImg: { width: '100%', height: 120, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   cardMeta: { fontSize: 12, color: colors.inkMuted },
