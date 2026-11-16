@@ -81,6 +81,34 @@ export function makeOrderRouter(orders: OrderService) {
         ),
       ),
 
+    /** Yalnız yönetici: bir kalemin birim fiyatını değiştir. */
+    setLinePrice: capabilityProcedure('price.manage')
+      .input(
+        z.object({
+          order: orderRef,
+          lineId: z.string().uuid(),
+          unitPrice: z.number().min(0).max(10_000_000),
+          note: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) =>
+        orders.setLinePrice(input.order, input.lineId, input.unitPrice, input.note, ctx.user),
+      ),
+
+    /** Yalnız yönetici: siparişe yüzde/tutar indirimi (0 = kaldır). */
+    setDiscount: capabilityProcedure('price.manage')
+      .input(
+        z.object({
+          order: orderRef,
+          mode: z.enum(['percent', 'amount']),
+          value: z.number().min(0).max(10_000_000),
+          note: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) =>
+        orders.setDiscount(input.order, input.mode, input.value, input.note, ctx.user),
+      ),
+
     transition: capabilityAnyProcedure(transitionCaps)
       .input(transitionInput)
       .mutation(({ input, ctx }) => orders.transition(input.order, input.to, ctx.user, input.note)),

@@ -418,9 +418,10 @@ export class OrderService {
         });
       }
       const subtotal = D(order.subtotal).add(lineTotal).toDecimalPlaces(2);
+      const disc = computeDiscount(subtotal, order.discountType, order.discountValue);
       const o = await tx.order.update({
         where: { id: order.id },
-        data: { subtotal, total: subtotal },
+        data: { subtotal, discountAmount: disc, total: subtotal.sub(disc).toDecimalPlaces(2) },
         include: { lines: true, branch: { select: { name: true } } },
       });
       await tx.orderEvent.create({
@@ -453,6 +454,133 @@ export class OrderService {
     });
 
     return this.shape(updated, actor.roles);
+  }
+
+  // ── Fiyat düzenleme (yalnız yönetici: price.manage) ────────────────────────
+
+  /** Kapanmamış siparişte, bir kalemin birim fiyatını değiştirir; toplamlar yeniden hesaplanır. */
+  async setLinePrice(
+    orderRef: string,
+    lineId: string,
+    unitPrice: number,
+    note: string | undefined,
+    actor: OrderActor,
+  ) {
+    const order = await this.loadForWrite(orderRef, actor);
+    this.assertPriceEditable(order.status as OrderStatus);
+    const line = order.lines.find((l) => l.id === lineId);
+    if (!line) throw new TRPCError({ code: 'NOT_FOUND', message: 'Kalem bulunamadı.' });
+
+    const unit = D(unitPrice).toDecimalPlaces(2);
+    const lineTotal = unit.mul(line.qty).toDecimalPlaces(2);
+    const oldUnit = line.unitPrice.toFixed(2);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.orderLine.update({ where: { id: line.id }, data: { unitPrice: unit, lineTotal } });
+      const o = await this.recalc(tx, order.id);
+      await tx.orderEvent.create({
+        data: {
+          orderId: order.id,
+          type: 'price_change',
+          actorId: actor.id,
+          actorRole: 'producer_admin',
+          note: note ?? `${line.nameSnapshot}: ${oldUnit} → ${unit.toFixed(2)} ${order.currency}`,
+          meta: { lineId: line.id, from: oldUnit, to: unit.toFixed(2) },
+        },
+      });
+      await tx.activityLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: 'producer_admin',
+          orgId: order.customerOrgId,
+          action: 'order.set_line_price',
+          entityType: 'order',
+          entityId: order.id,
+          before: { unitPrice: oldUnit },
+          after: { unitPrice: unit.toFixed(2), lineId: line.id },
+        },
+      });
+      return o;
+    });
+    return this.shape(updated, actor.roles);
+  }
+
+  /** Siparişe yüzde veya tutar indirimi uygular (value 0 = indirimi kaldır). */
+  async setDiscount(
+    orderRef: string,
+    mode: 'percent' | 'amount',
+    value: number,
+    note: string | undefined,
+    actor: OrderActor,
+  ) {
+    const order = await this.loadForWrite(orderRef, actor);
+    this.assertPriceEditable(order.status as OrderStatus);
+    if (mode === 'percent' && value > 100) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Yüzde indirim en fazla 100 olabilir.' });
+    }
+    const v = D(value).toDecimalPlaces(2);
+    if (mode === 'amount' && v.gt(order.subtotal)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'İndirim, ara toplamdan büyük olamaz.' });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { discountType: v.isZero() ? null : mode, discountValue: v },
+      });
+      const o = await this.recalc(tx, order.id);
+      await tx.orderEvent.create({
+        data: {
+          orderId: order.id,
+          type: 'discount',
+          actorId: actor.id,
+          actorRole: 'producer_admin',
+          note:
+            note ??
+            (v.isZero()
+              ? 'İndirim kaldırıldı'
+              : mode === 'percent'
+                ? `%${v.toFixed(2)} iskonto uygulandı`
+                : `${v.toFixed(2)} ${order.currency} indirim uygulandı`),
+          meta: { mode, value: v.toFixed(2) },
+        },
+      });
+      await tx.activityLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: 'producer_admin',
+          orgId: order.customerOrgId,
+          action: 'order.set_discount',
+          entityType: 'order',
+          entityId: order.id,
+          after: { mode, value: v.toFixed(2) },
+        },
+      });
+      return o;
+    });
+    return this.shape(updated, actor.roles);
+  }
+
+  private assertPriceEditable(status: OrderStatus): void {
+    if (isTerminal(status)) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Kapanmış siparişin fiyatı değiştirilemez.' });
+    }
+  }
+
+  /** Kalemlerden ara toplamı, mevcut indirim kuralından da toplamı yeniden hesaplar. */
+  private async recalc(tx: Prisma.TransactionClient, orderId: string) {
+    const lines = await tx.orderLine.findMany({ where: { orderId }, select: { lineTotal: true } });
+    const subtotal = lines.reduce((s, l) => s.add(l.lineTotal), D(0)).toDecimalPlaces(2);
+    const cur = await tx.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { discountType: true, discountValue: true },
+    });
+    const disc = computeDiscount(subtotal, cur.discountType, cur.discountValue);
+    return tx.order.update({
+      where: { id: orderId },
+      data: { subtotal, discountAmount: disc, total: subtotal.sub(disc).toDecimalPlaces(2) },
+      include: { lines: true, branch: { select: { name: true } } },
+    });
   }
 
   // ── Okuma ──────────────────────────────────────────────────────────────────
@@ -569,6 +697,9 @@ export class OrderService {
       currency: order.currency,
       subtotal: order.subtotal.toFixed(2),
       total: order.total.toFixed(2),
+      discountType: order.discountType,
+      discountValue: order.discountValue.toFixed(2),
+      discountAmount: order.discountAmount.toFixed(2),
       note: order.note,
       createdAt: order.createdAt,
       lines: order.lines.map((l) => ({
@@ -588,3 +719,15 @@ export class OrderService {
 
 /** Router girişini doğrularken kullanılan geçerli hedef durum listesi. */
 export const TRANSITION_TARGETS = ORDER_STATUSES;
+
+/** İndirim tutarı: yüzdeyse ara toplamdan hesaplanır; ara toplamı aşamaz. */
+function computeDiscount(
+  subtotal: Prisma.Decimal,
+  type: string | null,
+  value: Prisma.Decimal,
+): Prisma.Decimal {
+  if (!type) return D(0);
+  const raw = type === 'percent' ? D(subtotal).mul(value).div(100) : D(value);
+  const capped = raw.gt(subtotal) ? D(subtotal) : raw;
+  return capped.toDecimalPlaces(2);
+}

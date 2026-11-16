@@ -535,6 +535,9 @@ model Order {
   currency       String      @default("TRY")
   subtotal       Decimal     @default(0) @db.Decimal(12, 2)
   total          Decimal     @default(0) @db.Decimal(12, 2)
+  discountType   String?     // 'percent' | 'amount' (yalnız yönetici belirler)
+  discountValue  Decimal     @default(0) @db.Decimal(12, 2)
+  discountAmount Decimal     @default(0) @db.Decimal(12, 2) // hesaplanmış indirim tutarı
   note           String?
   placedBy       String?     @db.Uuid
   expectedAt     DateTime?

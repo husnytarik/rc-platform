@@ -22,6 +22,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { AddLineModal } from './AddLineModal';
+import { PriceEditModal, type PriceEditTarget } from './PriceEditModal';
 import { colors, radius, spacing } from '@/theme';
 
 function errText(e: unknown, fallback: string): string {
@@ -46,6 +47,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
   const utils = trpc.useUtils();
   const { can } = useAuth();
   const [adding, setAdding] = useState(false);
+  const [priceTarget, setPriceTarget] = useState<PriceEditTarget | null>(null);
   const q = trpc.orders.get.useQuery({ order: orderRef });
 
   const transition = trpc.orders.transition.useMutation({
@@ -72,6 +74,8 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
   }
 
   const o = q.data;
+  const isProducerView = can('order.view.all');
+  const canPrice = can('price.manage') && !isTerminal(o.status as OrderStatus);
   const status = o.status as OrderStatus;
   const meta = ORDER_STATUS_META[status];
   const reachedIdx = MAIN_LINE.indexOf(status);
@@ -122,7 +126,14 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
     >
       <View style={styles.card}>
         <View style={styles.row}>
-          <Text style={styles.code}>{o.keyCode}</Text>
+          {isProducerView ? (
+            <View style={styles.flex}>
+              <Text style={styles.code}>{o.customerName}</Text>
+              <Text style={styles.codeSmall}>{o.keyCode}</Text>
+            </View>
+          ) : (
+            <Text style={styles.code}>{o.keyCode}</Text>
+          )}
           <View style={[styles.badge, { borderColor: meta.color }]}>
             <View style={[styles.dot, { backgroundColor: meta.color }]} />
             <Text style={[styles.badgeText, { color: meta.color }]}>
@@ -130,9 +141,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             </Text>
           </View>
         </View>
-        <Text style={styles.muted}>
-          {o.customerName} · {o.branchName}
-        </Text>
+        <Text style={styles.muted}>{isProducerView ? o.branchName : `${o.customerName} · ${o.branchName}`}</Text>
         <Text style={styles.muted}>{formatDateTime(o.createdAt)}</Text>
       </View>
 
@@ -181,7 +190,18 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
                 {l.source !== 'customer' ? ' · sonradan eklendi' : ''}
               </Text>
             </View>
-            <Text style={styles.value}>{l.lineTotal}</Text>
+            <View style={styles.lineRight}>
+              <Text style={styles.value}>{l.lineTotal}</Text>
+              {canPrice && (
+                <TouchableOpacity
+                  onPress={() =>
+                    setPriceTarget({ kind: 'line', lineId: l.id, name: l.name, unitPrice: l.unitPrice })
+                  }
+                >
+                  <Text style={styles.linkSmall}>Fiyatı düzenle</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         ))}
         {can('order.add_line') && !isTerminal(status) && (
@@ -189,7 +209,32 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             <Text style={styles.link}>+ Kalem ekle</Text>
           </TouchableOpacity>
         )}
-        <View style={[styles.lineRow, styles.totalRow]}>
+        {Number(o.discountAmount) > 0 && (
+          <>
+            <View style={[styles.lineRow, styles.totalRow]}>
+              <Text style={styles.muted}>Ara toplam</Text>
+              <Text style={styles.muted}>
+                {o.subtotal} {o.currency}
+              </Text>
+            </View>
+            <View style={styles.lineRow}>
+              <Text style={styles.discountText}>
+                {o.discountType === 'percent' ? `İskonto (%${Number(o.discountValue)})` : 'İndirim'}
+              </Text>
+              <Text style={styles.discountText}>
+                −{o.discountAmount} {o.currency}
+              </Text>
+            </View>
+          </>
+        )}
+        {canPrice && (
+          <TouchableOpacity
+            onPress={() => setPriceTarget({ kind: 'discount', type: o.discountType, value: o.discountValue })}
+          >
+            <Text style={styles.link}>{Number(o.discountAmount) > 0 ? 'İndirimi düzenle' : '+ İskonto / indirim ekle'}</Text>
+          </TouchableOpacity>
+        )}
+        <View style={[styles.lineRow, Number(o.discountAmount) > 0 ? null : styles.totalRow]}>
           <Text style={styles.value}>Toplam</Text>
           <Text style={styles.total}>
             {o.total} {o.currency}
@@ -239,7 +284,11 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             <Text style={styles.value}>
               {e.type === 'line_added'
                 ? 'Kalem eklendi'
-                : e.toStatus
+                : e.type === 'price_change'
+                  ? 'Fiyat değişti'
+                  : e.type === 'discount'
+                    ? 'İndirim / iskonto'
+                    : e.toStatus
                   ? ORDER_STATUS_LABELS_TR[e.toStatus as OrderStatus]
                   : e.type}
             </Text>
@@ -251,6 +300,17 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
           </View>
         ))}
       </View>
+      <PriceEditModal
+        orderRef={o.id}
+        target={priceTarget}
+        currency={o.currency}
+        onClose={() => setPriceTarget(null)}
+        onSaved={() => {
+          setPriceTarget(null);
+          void utils.orders.get.invalidate({ order: orderRef });
+          void utils.orders.list.invalidate();
+        }}
+      />
       <AddLineModal
         orderRef={o.id}
         visible={adding}
@@ -320,6 +380,10 @@ const styles = StyleSheet.create({
   },
   stepDotCurrent: { width: 16, height: 16, borderRadius: 8 },
   stepLabel: { fontSize: 13, color: colors.inkFaint },
+  codeSmall: { fontSize: 12, color: colors.inkMuted, fontWeight: '600', marginTop: 2 },
+  lineRight: { alignItems: 'flex-end', gap: 2 },
+  linkSmall: { color: colors.accent, fontSize: 11, fontWeight: '700' },
+  discountText: { color: colors.danger, fontSize: 13, fontWeight: '700' },
   stepLabelFlex: { flex: 1 },
   stepTime: { fontSize: 12, color: colors.inkMuted, fontWeight: '600' },
   totalDuration: { marginTop: spacing(2), fontSize: 12, color: colors.accent, fontWeight: '700' },

@@ -3,6 +3,7 @@ import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { DraftOrderCard } from '@/components/DraftOrderCard';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/providers/auth-context';
 import { colors, radius, spacing } from '@/theme';
 
 function formatDate(d: string | Date): string {
@@ -12,6 +13,8 @@ function formatDate(d: string | Date): string {
 /** Sipariş listesi — kapsam (kendi siparişleri / tümü) sunucuda role göre belirlenir. */
 export function OrdersListScreen({ basePath }: { basePath: string }) {
   const router = useRouter();
+  const { can } = useAuth();
+  const producerView = can('order.view.all');
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     trpc.orders.list.useInfiniteQuery(
       { limit: 20 },
@@ -50,7 +53,16 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
             onPress={() => router.push(`${basePath}/${item.id}` as Href)}
           >
             <View style={styles.cardTop}>
-              <Text style={styles.cardTitle}>{item.keyCode}</Text>
+              {producerView ? (
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.customerName}
+                  </Text>
+                  <Text style={styles.cardCode}>{item.keyCode}</Text>
+                </View>
+              ) : (
+                <Text style={styles.cardTitle}>{item.keyCode}</Text>
+              )}
               <View style={[styles.badge, { borderColor: meta.color }]}>
                 <View style={[styles.badgeDot, { backgroundColor: meta.color }]} />
                 <Text style={[styles.badgeText, { color: meta.color }]}>
@@ -59,7 +71,7 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
               </View>
             </View>
             <Text style={styles.cardMeta}>
-              {item.customerName} · {item.branchName} · {item.lineCount} kalem
+              {producerView ? item.branchName : `${item.customerName} · ${item.branchName}`} · {item.lineCount} kalem
             </Text>
             <View style={styles.cardBottom}>
               <Text style={styles.cardTotal}>
@@ -88,6 +100,8 @@ const styles = StyleSheet.create({
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  cardHead: { flex: 1, marginRight: spacing(2) },
+  cardCode: { fontSize: 12, color: colors.inkMuted, fontWeight: '600', marginTop: 1 },
   cardMeta: { fontSize: 12, color: colors.inkMuted },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTotal: { fontSize: 14, color: colors.ink, fontWeight: '700' },
