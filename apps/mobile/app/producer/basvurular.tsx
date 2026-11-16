@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -12,10 +12,19 @@ function formatDate(d: string | Date): string {
   return new Date(d).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+type CRole = 'customer_admin' | 'branch_manager' | 'customer_user';
+const ROLES: { key: CRole; label: string }[] = [
+  { key: 'customer_admin', label: 'Müşteri Yöneticisi' },
+  { key: 'branch_manager', label: 'Şube Müdürü' },
+  { key: 'customer_user', label: 'Müşteri Kullanıcısı' },
+];
+
 export default function BasvurularScreen() {
   const utils = trpc.useUtils();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [roles, setRoles] = useState<Record<string, CRole>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     trpc.membership.requests.useInfiniteQuery(
@@ -32,7 +41,7 @@ export default function BasvurularScreen() {
     setError(null);
     setBusyId(id);
     approve.mutate(
-      { id },
+      { id, role: roles[id] ?? 'customer_admin' },
       {
         onError: (e: unknown) => setError(errText(e, 'Onaylanamadı.')),
         onSettled: () => setBusyId(null),
@@ -44,7 +53,7 @@ export default function BasvurularScreen() {
     setError(null);
     setBusyId(id);
     reject.mutate(
-      { id, reviewNote: 'Mobil üzerinden reddedildi.' },
+      { id, reviewNote: (notes[id] ?? '').trim().length >= 3 ? notes[id]!.trim() : 'Mobil üzerinden reddedildi.' },
       {
         onError: (e: unknown) => setError(errText(e, 'Reddedilemedi.')),
         onSettled: () => setBusyId(null),
@@ -88,6 +97,28 @@ export default function BasvurularScreen() {
               <Text style={styles.cardMeta}>{item.fullName ?? '—'} · {item.phone}</Text>
               {item.note && <Text style={styles.cardNote}>{item.note}</Text>}
               <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+              <Text style={styles.pickLabel}>Verilecek rol</Text>
+              <View style={styles.chips}>
+                {ROLES.map((ro) => {
+                  const on = (roles[item.id] ?? 'customer_admin') === ro.key;
+                  return (
+                    <TouchableOpacity
+                      key={ro.key}
+                      style={[styles.chip, on && styles.chipOn]}
+                      onPress={() => setRoles((x) => ({ ...x, [item.id]: ro.key }))}
+                    >
+                      <Text style={[styles.chipText, on && styles.chipTextOn]}>{ro.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TextInput
+                style={styles.noteInput}
+                value={notes[item.id] ?? ''}
+                onChangeText={(v) => setNotes((x) => ({ ...x, [item.id]: v }))}
+                placeholder="Ret notu (opsiyonel)"
+                placeholderTextColor={colors.inkFaint}
+              />
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.rejectButton]}
@@ -130,6 +161,13 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 12, color: colors.inkMuted },
   cardNote: { fontSize: 12, color: colors.inkMuted, fontStyle: 'italic' },
   cardDate: { fontSize: 11, color: colors.inkFaint },
+  pickLabel: { fontSize: 12, color: colors.inkMuted, fontWeight: '600', marginTop: spacing(2) },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2) },
+  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: spacing(3), paddingVertical: spacing(1.5) },
+  chipOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  chipText: { fontSize: 12, color: colors.inkMuted, fontWeight: '600' },
+  chipTextOn: { color: colors.accent },
+  noteInput: { backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: spacing(3), paddingVertical: spacing(2), fontSize: 13, color: colors.ink, marginTop: spacing(1) },
   actions: { flexDirection: 'row', gap: spacing(2), marginTop: spacing(2) },
   actionButton: {
     flex: 1,

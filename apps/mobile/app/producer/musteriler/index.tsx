@@ -1,9 +1,11 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
 export default function MusterilerScreen() {
+  const router = useRouter();
   const utils = trpc.useUtils();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
@@ -21,6 +23,10 @@ export default function MusterilerScreen() {
   });
 
   return (
+    <View style={styles.flex}>
+    <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/producer/musteriler/yeni')}>
+      <Text style={styles.addBtnText}>+ Yeni firma</Text>
+    </TouchableOpacity>
     <FlatList
       style={styles.flex}
       contentContainerStyle={styles.listContent}
@@ -43,7 +49,11 @@ export default function MusterilerScreen() {
         isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.accent} /> : null
       }
       renderItem={({ item }) => (
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.8}
+          onPress={() => router.push({ pathname: '/producer/musteriler/[id]', params: { id: item.id } })}
+        >
           <View style={styles.cardTop}>
             <Text style={styles.cardTitle}>{item.name}</Text>
             {!item.isActive && (
@@ -76,15 +86,18 @@ export default function MusterilerScreen() {
               </Text>
             )}
           </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       )}
     />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: spacing(5), gap: spacing(2.5) },
+  addBtn: { margin: spacing(5), marginBottom: 0, backgroundColor: colors.accent, borderRadius: radius.sm, paddingVertical: spacing(3), alignItems: 'center' },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   empty: { textAlign: 'center', color: colors.inkMuted, marginTop: spacing(6) },
   card: {
     backgroundColor: colors.surface,
