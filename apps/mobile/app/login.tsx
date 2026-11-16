@@ -1,4 +1,4 @@
-import { isValidTcKimlik, normalizeTc, toE164TR } from '@rc/shared';
+import { isProducerRole, isValidTcKimlik, normalizeTc, toE164TR, type Role } from '@rc/shared';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -36,6 +36,8 @@ export default function LoginScreen() {
   const requestOtp = trpc.auth.requestOtp.useMutation();
   const verifyOtp = trpc.auth.verifyOtp.useMutation();
   const demoLogin = trpc.auth.demoLogin.useMutation();
+  const demoRoleLogin = trpc.auth.demoLoginRole.useMutation();
+  const demoRoles = trpc.auth.demoRoles.useQuery(undefined, { retry: 1 });
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoCode, setDemoCode] = useState('');
 
@@ -50,7 +52,7 @@ export default function LoginScreen() {
   const tcOk = isValidTcKimlik(tc);
   const phoneOk = toE164TR(phone) !== null;
   const codeReady = needsPassword ? code.length >= 6 : code.length === 6;
-  const busy = requestOtp.isPending || verifyOtp.isPending || demoLogin.isPending;
+  const busy = requestOtp.isPending || verifyOtp.isPending || demoLogin.isPending || demoRoleLogin.isPending;
 
   const sendCode = (): void => {
     setError(null);
@@ -79,6 +81,19 @@ export default function LoginScreen() {
           void login({ accessToken: session.accessToken, refreshToken: session.refreshToken });
         },
         onError: (e: unknown) => setError(errText(e, 'Giriş yapılamadı. Tekrar dener misin?')),
+      },
+    );
+  };
+
+  const submitDemoRole = (role: Role): void => {
+    setError(null);
+    demoRoleLogin.mutate(
+      { role },
+      {
+        onSuccess: (session) => {
+          void login({ accessToken: session.accessToken, refreshToken: session.refreshToken });
+        },
+        onError: (e: unknown) => setError(errText(e, 'Demo girişi yapılamadı.')),
       },
     );
   };
@@ -203,7 +218,22 @@ export default function LoginScreen() {
             </>
           )}
 
-          {demoOpen ? (
+          {demoOpen && demoRoles.data && demoRoles.data.length > 0 ? (
+            <View style={styles.demoBox}>
+              <Text style={styles.demoTitle}>Demo — bir rolle direkt gir</Text>
+              {demoRoles.data.map((r) => (
+                <TouchableOpacity
+                  key={r.role}
+                  style={[styles.roleButton, busy && styles.disabled]}
+                  disabled={busy}
+                  onPress={() => submitDemoRole(r.role)}
+                >
+                  <Text style={styles.roleButtonText}>{r.label}</Text>
+                  <Text style={styles.roleSide}>{isProducerRole(r.role) ? 'Üretici' : 'Müşteri'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : demoOpen ? (
             <View style={styles.demoBox}>
               <TextInput
                 style={styles.demoInput}
@@ -317,6 +347,18 @@ const styles = StyleSheet.create({
     marginTop: spacing(5),
     textDecorationLine: 'underline',
   },
+  demoTitle: { fontSize: 13, color: colors.inkMuted, fontWeight: '700', textAlign: 'center', marginBottom: spacing(1) },
+  roleButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.sm,
+    paddingVertical: spacing(3.5),
+    paddingHorizontal: spacing(4),
+  },
+  roleButtonText: { color: colors.accent, fontWeight: '800', fontSize: 14 },
+  roleSide: { color: colors.inkMuted, fontSize: 12, fontWeight: '600' },
   demoBox: { gap: spacing(2), marginTop: spacing(5) },
   demoInput: {
     backgroundColor: colors.surface,

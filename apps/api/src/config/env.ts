@@ -33,6 +33,8 @@ const schema = z.object({
   ADMIN_PHONES: z.string().optional(),
   // SMS sağlayıcısı yokken geçici mod: SMS_MOCK=true → kod "gelmiş gibi" uygulamaya döner; yönetici ADMIN_PASSWORD ister.
   SMS_MOCK: z.enum(['true', 'false']).optional(),
+  // Girişte "Demo" rol seçicisi: true ise (veya SMS_MOCK açıkken) her rol için kodsuz demo girişi.
+  DEMO_OPEN: z.enum(['true', 'false']).optional(),
   ADMIN_PASSWORD: z.string().min(8).optional(),
 });
 

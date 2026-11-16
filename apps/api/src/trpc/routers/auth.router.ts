@@ -1,3 +1,4 @@
+import { ROLES } from '@rc/shared';
 import { z } from 'zod';
 import type { AuthService } from '../../auth/auth.service';
 import {
@@ -24,6 +25,14 @@ export function makeAuthRouter(auth: AuthService) {
     demoLogin: publicProcedure
       .input(z.object({ code: z.string().min(4).max(100) }))
       .mutation(({ input, ctx }) => auth.demoLogin(input.code, ctx.reqInfo)),
+
+    /** Demo rol listesi (kapalıysa boş). */
+    demoRoles: publicProcedure.query(() => auth.demoRoles()),
+
+    /** Seçilen rolle kodsuz demo girişi; yalnız demo modu açıkken. */
+    demoLoginRole: publicProcedure
+      .input(z.object({ role: z.enum(ROLES) }))
+      .mutation(({ input, ctx }) => auth.demoLoginRole(input.role, ctx.reqInfo)),
 
     /** İlk girişten sonra, üyeliği bekleyen kullanıcının kayıt formu. */
     submitMembershipRequest: protectedProcedure

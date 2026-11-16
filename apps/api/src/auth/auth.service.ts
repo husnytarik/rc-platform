@@ -8,7 +8,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { isValidTcKimlik, normalizeTc, toE164TR } from '@rc/shared';
+import {
+  isValidTcKimlik,
+  normalizeTc,
+  PRODUCER_ROLES,
+  ROLE_LABELS_TR,
+  ROLES,
+  toE164TR,
+  type Role,
+} from '@rc/shared';
 import type { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from './sms.service';
@@ -317,6 +325,80 @@ export class AuthService {
       where: { userId_orgId_role: { userId: user.id, orgId: org.id, role } },
       update: { status: 'active' },
       create: { userId: user.id, orgId: org.id, role, status: 'active' },
+    });
+
+    const pair = await this.tokens.issuePair(user.id, ctx);
+    return {
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+      refreshExpiresAt: pair.refreshExpiresAt.toISOString(),
+      state: 'active',
+      user: { id: user.id, phone: user.phone, fullName: user.fullName },
+    };
+  }
+
+  /** Demo rol seçici açık mı: DEMO_OPEN=true veya geçici SMS'siz mod (SMS_MOCK) açıkken. */
+  demoRolesEnabled(): boolean {
+    return process.env.DEMO_OPEN === 'true' || (!this.sms.configured && process.env.SMS_MOCK === 'true');
+  }
+
+  /** Girişte "Demo" listesi: her rol için bir giriş. Kapalıysa boş liste. */
+  demoRoles(): { role: Role; label: string }[] {
+    if (!this.demoRolesEnabled()) return [];
+    return ROLES.map((role) => ({ role, label: ROLE_LABELS_TR[role] }));
+  }
+
+  /**
+   * Seçilen rolle demo girişi (kodsuz). Üretici rolleri roasteryclub, müşteri rolleri
+   * demo müşteri firması (moda-kahve-evi, yoksa demo-kafe) altında çalışır.
+   */
+  async demoLoginRole(role: Role, ctx: Ctx): Promise<SessionResult> {
+    if (!this.demoRolesEnabled()) throw new NotFoundException('Demo giriş kapalı.');
+    if (!ROLES.includes(role)) throw new BadRequestException('Geçersiz rol.');
+
+    const key = `role:${ctx.ip ?? 'unknown'}`;
+    const now = Date.now();
+    const f = this.demoFails.get(key);
+    if (f && now - f.since < DEMO_WINDOW_MS && f.n >= 60) {
+      throw new BadRequestException('Çok fazla deneme. Biraz sonra tekrar deneyin.');
+    }
+    const fresh = !f || now - f.since >= DEMO_WINDOW_MS;
+    this.demoFails.set(key, { n: fresh ? 1 : f.n + 1, since: fresh ? now : f.since });
+
+    const producerSide = PRODUCER_ROLES.includes(role);
+    let org = producerSide
+      ? await this.prisma.organization.findUnique({ where: { slug: 'roasteryclub' } })
+      : await this.prisma.organization.findUnique({ where: { slug: 'moda-kahve-evi' } });
+    if (!org && !producerSide) {
+      org = await this.prisma.organization.upsert({
+        where: { slug: 'demo-kafe' },
+        update: {},
+        create: { type: 'customer', name: 'Demo Kafe', slug: 'demo-kafe' },
+      });
+    }
+    if (!org) throw new BadRequestException('Demo hesabı için kurum bulunamadı.');
+
+    const user = await this.prisma.user.upsert({
+      where: { provider_providerUserId: { provider: 'google', providerUserId: `demo-${role}` } },
+      update: { lastLoginAt: new Date() },
+      create: {
+        provider: 'google',
+        providerUserId: `demo-${role}`,
+        fullName: `Demo ${ROLE_LABELS_TR[role]}`,
+        lastLoginAt: new Date(),
+      },
+    });
+
+    // Şube müdürü yalnız ilk şubesini görür; diğer roller tüm kurumu.
+    let branchScope: string[] | undefined;
+    if (role === 'branch_manager') {
+      const b = await this.prisma.branch.findFirst({ where: { orgId: org.id }, orderBy: { createdAt: 'asc' } });
+      if (b) branchScope = [b.id];
+    }
+    await this.prisma.membership.upsert({
+      where: { userId_orgId_role: { userId: user.id, orgId: org.id, role } },
+      update: { status: 'active', ...(branchScope ? { branchScope } : {}) },
+      create: { userId: user.id, orgId: org.id, role, status: 'active', ...(branchScope ? { branchScope } : {}) },
     });
 
     const pair = await this.tokens.issuePair(user.id, ctx);
