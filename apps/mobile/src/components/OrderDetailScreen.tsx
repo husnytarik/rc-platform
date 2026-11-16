@@ -33,6 +33,7 @@ function formatDateTime(d: string | Date): string {
   return new Date(d).toLocaleString('tr-TR', {
     day: '2-digit',
     month: '2-digit',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -80,6 +81,22 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
     .map((e) => (e.toStatus ? MAIN_LINE.indexOf(e.toStatus as OrderStatus) : -1))
     .reduce((a, b) => Math.max(a, b), -1);
   const progressIdx = reachedIdx >= 0 ? reachedIdx : lastMainFromEvents;
+
+  // Her aşamanın gerçekleştiği tarih-saat (aynı aşamaya birden çok kez geçildiyse sonuncusu).
+  const stepTime = new Map<OrderStatus, string | Date>();
+  for (const e of o.events) if (e.toStatus) stepTime.set(e.toStatus as OrderStatus, e.createdAt);
+  if (!stepTime.has('placed')) stepTime.set('placed', o.createdAt);
+  const deliveredAt = stepTime.get('delivered');
+  const totalMin =
+    status === 'delivered' && deliveredAt
+      ? Math.max(0, Math.round((new Date(deliveredAt).getTime() - new Date(o.createdAt).getTime()) / 60000))
+      : null;
+  const durationLabel =
+    totalMin == null
+      ? null
+      : totalMin >= 1440
+        ? `${Math.floor(totalMin / 1440)} gün ${Math.floor((totalMin % 1440) / 60)} sa`
+        : `${Math.floor(totalMin / 60)} sa ${totalMin % 60} dk`;
 
   const runStep = (to: OrderStatus, label: string): void => {
     const go = (): void => transition.mutate({ order: o.id, to });
@@ -194,19 +211,24 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
                   current && styles.stepDotCurrent,
                 ]}
               />
-              <Text style={[styles.stepLabel, done && styles.stepLabelDone, current && styles.bold]}>
+              <Text style={[styles.stepLabel, styles.stepLabelFlex, done && styles.stepLabelDone, current && styles.bold]}>
                 {ORDER_STATUS_LABELS_TR[s]}
               </Text>
+              {done && stepTime.has(s) && <Text style={styles.stepTime}>{formatDateTime(stepTime.get(s)!)}</Text>}
             </View>
           );
         })}
         {(status === 'cancelled' || status === 'on_hold' || status === 'delivery_issue') && (
           <View style={styles.stepRow}>
             <View style={[styles.stepDot, { backgroundColor: meta.color, borderColor: meta.color }]} />
-            <Text style={[styles.stepLabel, { color: meta.color }, styles.bold]}>
+            <Text style={[styles.stepLabel, styles.stepLabelFlex, { color: meta.color }, styles.bold]}>
               {ORDER_STATUS_LABELS_TR[status]}
             </Text>
+            {stepTime.has(status) && <Text style={styles.stepTime}>{formatDateTime(stepTime.get(status)!)}</Text>}
           </View>
+        )}
+        {durationLabel && (
+          <Text style={styles.totalDuration}>Sipariş → teslim toplam süre: {durationLabel}</Text>
         )}
       </View>
 
@@ -298,6 +320,9 @@ const styles = StyleSheet.create({
   },
   stepDotCurrent: { width: 16, height: 16, borderRadius: 8 },
   stepLabel: { fontSize: 13, color: colors.inkFaint },
+  stepLabelFlex: { flex: 1 },
+  stepTime: { fontSize: 12, color: colors.inkMuted, fontWeight: '600' },
+  totalDuration: { marginTop: spacing(2), fontSize: 12, color: colors.accent, fontWeight: '700' },
   stepLabelDone: { color: colors.ink },
   bold: { fontWeight: '700' },
   eventRow: { gap: 2 },
