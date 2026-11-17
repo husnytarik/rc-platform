@@ -27,7 +27,7 @@ export const PRODUCER_NAV: ProducerNavItem[] = [
   { key: 'duyurular', label: 'Duyurular', hint: 'Müşterilere duyuru ve bildirim gönder', href: '/producer/duyurular', cap: 'announcement.manage', primary: false, icon: 'megaphone' },
   { key: 'tarifler', label: 'Reçeteler', hint: 'Reçete ekle/düzenle (müşteri ana sayfasında yayınlanır)', href: '/producer/tarifler', cap: 'content.manage', primary: false, icon: 'restaurant' },
   { key: 'ipuclari', label: 'İpuçları', hint: 'Günün ipucu girişleri (müşteri ana sayfası)', href: '/producer/ipuclari', cap: 'content.manage', primary: false, icon: 'bulb' },
-  { key: 'satis-raporu', label: 'Satış raporu', hint: 'Başlık, açıklama, tarih-saat ile elle rapor girişi', href: '/producer/satis-raporu', cap: 'salesreport.write', primary: false, icon: 'create' },
+  { key: 'satis-raporu', label: 'Satış / görüşme raporu', hint: 'Satış ve müşteri görüşmelerini başlık, açıklama, tarih-saatle kaydet', href: '/producer/satis-raporu', cap: 'salesreport.write', primary: false, icon: 'create' },
   { key: 'excel', label: 'Excel', hint: 'Kataloğu Excel ile içe/dışa aktar', href: '/producer/excel', cap: 'catalog.manage', primary: false, icon: 'grid' },
   { key: 'raporlar', label: 'Raporlar', hint: 'Ciro, sipariş ve müşteri özetleri', href: '/producer/raporlar', cap: 'report.view', primary: false, icon: 'stats-chart' },
 ];

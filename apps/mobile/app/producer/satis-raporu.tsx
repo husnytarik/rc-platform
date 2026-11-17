@@ -46,14 +46,14 @@ export default function SatisRaporuScreen() {
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
-        <Text style={styles.heading}>Yeni rapor girişi</Text>
+        <Text style={styles.heading}>Yeni satış / görüşme kaydı</Text>
         {error && <Text style={styles.error}>{error}</Text>}
-        <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Başlık" placeholderTextColor={colors.inkFaint} />
+        <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Başlık (ör. ABC Kafe ile görüşme)" placeholderTextColor={colors.inkFaint} />
         <TextInput
           style={[styles.input, styles.multi]}
           value={body}
           onChangeText={setBody}
-          placeholder="Kısa açıklama"
+          placeholder="Kısa açıklama (görüşme konusu, sonuç, sonraki adım)"
           placeholderTextColor={colors.inkFaint}
           multiline
         />
