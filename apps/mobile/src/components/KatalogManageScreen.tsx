@@ -1,12 +1,16 @@
 import { Link } from 'expo-router';
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { CategoryChips } from '@/components/CategoryChips';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing, shadow } from '@/theme';
 
 export function KatalogManageScreen() {
+  const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     trpc.catalog.adminList.useInfiniteQuery(
-      { limit: 30 },
+      { limit: 30, search: search.trim() || undefined, categoryId: categoryId ?? undefined },
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     );
   const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -23,12 +27,25 @@ export function KatalogManageScreen() {
       onEndReached={() => {
         if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
       }}
+      keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
-        <Link href="/producer/katalog/yeni" asChild>
-          <TouchableOpacity style={styles.newButton}>
-            <Text style={styles.newButtonText}>+ Yeni ürün</Text>
-          </TouchableOpacity>
-        </Link>
+        <View style={styles.headerBox}>
+          <Link href="/producer/katalog/yeni" asChild>
+            <TouchableOpacity style={styles.newButton}>
+              <Text style={styles.newButtonText}>+ Yeni ürün</Text>
+            </TouchableOpacity>
+          </Link>
+          <TextInput
+            style={styles.search}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Ad, kod veya marka ara…"
+            placeholderTextColor={colors.inkFaint}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <CategoryChips value={categoryId} onChange={setCategoryId} mode="id" />
+        </View>
       }
       ListEmptyComponent={
         isLoading ? (
@@ -70,6 +87,16 @@ export function KatalogManageScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBox: { gap: spacing(2.5), marginBottom: spacing(1) },
+  search: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2.5),
+    fontSize: 15,
+    color: colors.ink,
+    ...shadow.card,
+  },
   flex: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: spacing(5), gap: spacing(2.5) },
   empty: { textAlign: 'center', color: colors.inkMuted, marginTop: spacing(6) },

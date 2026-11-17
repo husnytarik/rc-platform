@@ -24,6 +24,7 @@ const productInput = z
 const adminListInput = z
   .object({
     search: z.string().min(1).max(120).optional(),
+    categoryId: z.string().uuid().optional(),
     limit: z.number().int().min(1).max(100).optional(),
     cursor: z.string().uuid().optional(),
   })

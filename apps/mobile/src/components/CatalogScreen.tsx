@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { CategoryChips } from '@/components/CategoryChips';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { useCart, type CartLine } from '@/providers/cart-context';
@@ -133,8 +134,9 @@ export function CatalogScreen() {
   const { identity } = useAuth();
   const canOrder = identity?.roles.some(isCustomerRole) ?? false;
   const [search, setSearch] = useState('');
+  const [categorySlug, setCategorySlug] = useState<string | null>(null);
   const products = trpc.catalog.list.useInfiniteQuery(
-    { limit: 30, search: search.trim() || undefined },
+    { limit: 30, search: search.trim() || undefined, categorySlug: categorySlug ?? undefined },
     { getNextPageParam: (last) => last.nextCursor ?? undefined },
   );
   const items = products.data?.pages.flatMap((p) => p.items) ?? [];
@@ -153,15 +155,18 @@ export function CatalogScreen() {
       }}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
-        <TextInput
-          style={styles.search}
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Ürün ara…"
-          placeholderTextColor={colors.inkFaint}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+        <View style={styles.headerBox}>
+          <TextInput
+            style={styles.search}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Ürün ara…"
+            placeholderTextColor={colors.inkFaint}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <CategoryChips value={categorySlug} onChange={setCategorySlug} mode="slug" />
+        </View>
       }
       ListFooterComponent={
         products.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.accent} /> : null
@@ -170,7 +175,7 @@ export function CatalogScreen() {
         products.isLoading ? (
           <ActivityIndicator style={{ marginTop: 24 }} color={colors.accent} />
         ) : (
-          <Text style={styles.empty}>Katalogda ürün yok.</Text>
+          <Text style={styles.empty}>{search || categorySlug ? 'Eşleşen ürün yok.' : 'Katalogda ürün yok.'}</Text>
         )
       }
       renderItem={({ item }) => {
@@ -207,6 +212,7 @@ export function CatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBox: { gap: spacing(2.5), marginBottom: spacing(2.5) },
   flex: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: spacing(5), gap: spacing(2.5) },
   search: {

@@ -223,11 +223,20 @@ export class CatalogService {
   }
 
   /** Yönetim listesi: pasif ürünler ve servisler dahil, düzenleme ekranı için özet alanlar. */
-  async adminList(input: { search?: string; limit?: number; cursor?: string }) {
+  async adminList(input: { search?: string; categoryId?: string; limit?: number; cursor?: string }) {
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 100);
     const rows = await this.prisma.product.findMany({
       where: {
-        ...(input.search ? { name: { contains: input.search, mode: 'insensitive' } } : {}),
+        ...(input.search
+          ? {
+              OR: [
+                { name: { contains: input.search, mode: 'insensitive' } },
+                { code: { contains: input.search, mode: 'insensitive' } },
+                { brand: { contains: input.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+        ...(input.categoryId ? { categoryId: input.categoryId } : {}),
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       take: limit + 1,
