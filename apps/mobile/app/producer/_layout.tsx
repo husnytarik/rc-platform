@@ -27,6 +27,8 @@ export default function ProducerLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         headerTitleStyle: { fontWeight: '800' },
         headerShadowVisible: false,
+        tabBarStyle: { backgroundColor: colors.surface, borderTopWidth: 0, elevation: 12, shadowColor: '#2A1B10', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
+        headerStyle: { backgroundColor: colors.bg },
       }}
     >
       {/* Sekme sırası bildirim sırasıdır: önce birincil sekmeler, sonra "Daha fazla" */}
@@ -37,7 +39,7 @@ export default function ProducerLayout() {
           options={primary.includes(item) ? { title: item.label, tabBarIcon: tabIcon(item.icon) } : { href: null, title: item.label }}
         />
       ))}
-      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('☰') }} />
+      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('menu') }} />
       {secondary.map((item) => (
         <Tabs.Screen key={item.key} name={item.key} options={{ href: null, title: item.label }} />
       ))}

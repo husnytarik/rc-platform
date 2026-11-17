@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 function errText(e: unknown, fallback: string): string {
   const m = (e as { message?: string } | undefined)?.message;
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   saveText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   disabled: { opacity: 0.5 },
   link: { color: colors.accent, fontWeight: '700', fontSize: 13, textAlign: 'center', marginTop: spacing(1) },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing(3.5) },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing(3.5), ...shadow.card },
   rowTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
   rowMeta: { fontSize: 12, color: colors.inkMuted, marginTop: 2 },
   chev: { fontSize: 22, color: colors.inkFaint },

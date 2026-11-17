@@ -2,7 +2,7 @@ import { SERVICE_REQUEST_STATUS_LABELS_TR, type ServiceRequestStatus } from '@rc
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 const STATUS_COLOR: Record<ServiceRequestStatus, string> = {
   new: colors.accent,
@@ -86,10 +86,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1),
-  },
+    gap: spacing(1), ...shadow.card },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   cardMeta: { fontSize: 12, color: colors.inkMuted },
   cardCta: { fontSize: 12, fontWeight: '700', color: colors.accent, marginTop: spacing(1) },

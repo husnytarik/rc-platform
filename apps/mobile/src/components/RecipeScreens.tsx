@@ -1,7 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 const DIFF_TR: Record<string, string> = { kolay: 'Kolay', orta: 'Orta', zor: 'Zor' };
 
@@ -37,7 +37,7 @@ export function TodayRecipeCard({ base }: { base: '/customer' | '/producer' }) {
     >
       {r.imageUrl && <Image source={{ uri: r.imageUrl }} style={styles.todayImg} resizeMode="cover" />}
       <View style={styles.todayBody}>
-        <Text style={styles.todayBadge}>☕ GÜNÜN REÇETESİ</Text>
+        <Text style={styles.todayBadge}>GÜNÜN REÇETESİ</Text>
         <Text style={styles.todayTitle}>{r.title}</Text>
         {r.subtitle && <Text style={styles.sub}>{r.subtitle}</Text>}
         <Meta r={r} />
@@ -95,8 +95,8 @@ export function RecipeDetailScreen({ id }: { id: string }) {
         <Text style={styles.h1}>{r.title}</Text>
         {r.subtitle && <Text style={styles.sub}>{r.subtitle}</Text>}
         <View style={styles.chips}>
-          <Text style={styles.chip}>⏱ {r.prepMinutes} dk</Text>
-          <Text style={styles.chip}>👥 {r.servings} kişilik</Text>
+          <Text style={styles.chip}>{r.prepMinutes} dk</Text>
+          <Text style={styles.chip}>{r.servings} kişilik</Text>
           <Text style={styles.chip}>{DIFF_TR[r.difficulty] ?? r.difficulty}</Text>
           <Text style={styles.chip}>{r.category}</Text>
         </View>
@@ -119,7 +119,7 @@ export function RecipeDetailScreen({ id }: { id: string }) {
 
         {r.tip && (
           <View style={styles.tip}>
-            <Text style={styles.tipTitle}>💡 Barista ipucu</Text>
+            <Text style={styles.tipTitle}>Barista ipucu</Text>
             <Text style={styles.stepText}>{r.tip}</Text>
           </View>
         )}
@@ -131,7 +131,7 @@ export function RecipeDetailScreen({ id }: { id: string }) {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing(5), gap: spacing(3), paddingBottom: spacing(10) },
-  today: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  today: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden', ...shadow.card },
   todayImg: { width: '100%', height: 170 },
   todayBody: { padding: spacing(4), gap: 2 },
   todayBadge: { fontSize: 11, fontWeight: '800', color: colors.accent, letterSpacing: 0.5 },
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   sub: { fontSize: 13, color: colors.inkMuted },
   meta: { fontSize: 12, color: colors.inkFaint, marginTop: 2 },
   section: { fontSize: 16, fontWeight: '800', color: colors.ink, marginTop: spacing(2) },
-  row: { flexDirection: 'row', gap: spacing(3), backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing(2.5), alignItems: 'center' },
+  row: { flexDirection: 'row', gap: spacing(3), backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing(2.5), alignItems: 'center', ...shadow.card },
   thumb: { width: 72, height: 72, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
   flexTxt: { flex: 1, gap: 1 },
   rowTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },

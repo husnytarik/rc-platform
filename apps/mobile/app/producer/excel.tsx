@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as XLSX from 'xlsx';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 type Row = {
   productCode: string;
@@ -269,10 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(4),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(2.5),
-  },
+    gap: spacing(2.5), ...shadow.card },
   title: { fontSize: 16, fontWeight: '700', color: colors.ink },
   muted: { fontSize: 13, color: colors.inkMuted, lineHeight: 18 },
   error: { fontSize: 12, color: '#b3261e' },

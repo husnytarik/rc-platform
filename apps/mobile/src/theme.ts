@@ -22,3 +22,14 @@ export const colors = {
 export const radius = { sm: 10, md: 14, lg: 20, pill: 999 } as const;
 
 export const spacing = (n: number): number => n * 4;
+
+/** Çerçeve yerine yumuşak gölge: kart içinde kart çerçevesi görüntüsünü ortadan kaldırır. */
+export const shadow = {
+  card: {
+    shadowColor: '#2A1B10',
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+} as const;

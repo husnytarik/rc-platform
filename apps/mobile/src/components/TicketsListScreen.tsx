@@ -1,7 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 import { TICKET_STATUS_COLOR, ticketStatusLabel } from './ticket-ui';
 
 /** Destek talepleri listesi — müşteri kendi firmasını, personel hepsini görür. */
@@ -69,10 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1),
-  },
+    gap: spacing(1), ...shadow.card },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(2) },
   title: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   status: { fontSize: 11, fontWeight: '700' },

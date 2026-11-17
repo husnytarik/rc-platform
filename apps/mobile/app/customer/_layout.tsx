@@ -24,20 +24,22 @@ export default function CustomerLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         headerTitleStyle: { fontWeight: '800' },
         headerShadowVisible: false,
+        tabBarStyle: { backgroundColor: colors.surface, borderTopWidth: 0, elevation: 12, shadowColor: '#2A1B10', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
+        headerStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Ana Sayfa', tabBarIcon: tabIcon('🏠') }} />
-      <Tabs.Screen name="katalog" options={{ title: 'Katalog', tabBarIcon: tabIcon('☕') }} />
+      <Tabs.Screen name="index" options={{ title: 'Ana Sayfa', tabBarIcon: tabIcon('home') }} />
+      <Tabs.Screen name="katalog" options={{ title: 'Katalog', tabBarIcon: tabIcon('cafe') }} />
       <Tabs.Screen
         name="siparislerim"
         options={{
           title: 'Siparişlerim',
-          tabBarIcon: tabIcon('📦'),
+          tabBarIcon: tabIcon('cube'),
           // Gönderilmemiş (taslak) siparişte bekleyen kalem sayısı.
           tabBarBadge: cart.totalQty > 0 ? cart.totalQty : undefined,
         }}
       />
-      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('☰') }} />
+      <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('menu') }} />
       <Tabs.Screen name="tarifler" options={{ href: null, title: 'Reçeteler' }} />
       <Tabs.Screen name="servisler" options={{ href: null, title: 'Servisler' }} />
       <Tabs.Screen name="destek" options={{ href: null, title: 'Destek' }} />

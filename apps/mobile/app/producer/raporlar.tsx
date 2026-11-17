@@ -2,7 +2,7 @@ import { ORDER_STATUS_LABELS_TR, type OrderStatus } from '@rc/shared';
 import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 const RANGES = [7, 30, 90];
 
@@ -115,20 +115,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(0.5),
-  },
+    gap: spacing(0.5), ...shadow.card },
   statValue: { fontSize: 18, fontWeight: '800', color: colors.ink },
   section: { fontSize: 14, fontWeight: '700', color: colors.ink, marginTop: spacing(2) },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(2),
-  },
+    gap: spacing(2), ...shadow.card },
   line: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing(3) },
   value: { fontSize: 14, color: colors.ink, fontWeight: '600' },
   muted: { fontSize: 12, color: colors.inkMuted },

@@ -1,11 +1,12 @@
 import { ORDER_STATUS_LABELS_TR, ORDER_STATUS_META, type OrderStatus } from '@rc/shared';
 import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Icon, type IconName } from '@/components/Icon';
 import { TodayRecipeCard } from '@/components/RecipeScreens';
 import { useAuth } from '@/providers/auth-context';
 import { useCart } from '@/providers/cart-context';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -52,7 +53,9 @@ export function HomeScreen() {
           <Text style={styles.heroTitle}>Yeni sipariş ver</Text>
           <Text style={styles.heroSub}>Kataloğa göz at, ürünleri siparişine ekle.</Text>
         </View>
-        <Text style={styles.heroIcon}>☕</Text>
+        <View style={styles.heroIconWrap}>
+          <Icon name="cafe" size={34} color="#fff" />
+        </View>
       </TouchableOpacity>
 
       {cart.totalQty > 0 && (
@@ -69,9 +72,9 @@ export function HomeScreen() {
       <TodayRecipeCard base="/customer" />
 
       <View style={styles.tiles}>
-        <Tile icon="📦" label="Siparişlerim" onPress={() => go('/customer/siparislerim')} />
-        <Tile icon="🛠️" label="Servisler" onPress={() => go('/customer/servisler')} />
-        <Tile icon="💬" label="Destek" onPress={() => go('/customer/destek')} />
+        <Tile icon="cube-outline" label="Siparişlerim" onPress={() => go('/customer/siparislerim')} />
+        <Tile icon="construct-outline" label="Servisler" onPress={() => go('/customer/servisler')} />
+        <Tile icon="chatbubbles-outline" label="Destek" onPress={() => go('/customer/destek')} />
       </View>
 
       <View style={styles.sectionRow}>
@@ -132,10 +135,12 @@ export function HomeScreen() {
   );
 }
 
-function Tile({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.tile} onPress={onPress}>
-      <Text style={styles.tileIcon}>{icon}</Text>
+      <View style={styles.tileIconWrap}>
+        <Icon name={icon} size={22} color={colors.accent} />
+      </View>
       <Text style={styles.tileText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -157,7 +162,7 @@ const styles = StyleSheet.create({
   heroTexts: { flex: 1, gap: spacing(1) },
   heroTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
   heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
-  heroIcon: { fontSize: 40 },
+  heroIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   draft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -178,13 +183,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: spacing(4),
     alignItems: 'center',
-    gap: spacing(1.5),
-  },
-  tileIcon: { fontSize: 26 },
+    gap: spacing(1.5), ...shadow.card },
+  tileIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   tileText: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing(2) },
   section: { fontSize: 16, fontWeight: '800', color: colors.ink },
@@ -195,11 +197,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing(3.5),
-    gap: spacing(3),
-  },
+    gap: spacing(3), ...shadow.card },
   orderTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
   orderMeta: { fontSize: 12, color: colors.inkMuted, marginTop: 2 },
   orderRight: { alignItems: 'flex-end', gap: 2 },
@@ -209,10 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1),
-  },
+    gap: spacing(1), ...shadow.card },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
   cardBody: { fontSize: 13, color: colors.ink },
   cardDate: { fontSize: 11, color: colors.inkFaint },

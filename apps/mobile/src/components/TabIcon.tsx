@@ -1,8 +1,8 @@
-import { Text } from 'react-native';
+import { Icon, type IconName } from '@/components/Icon';
 
-/** Alt sekme ikonu. Ek ikon kütüphanesi gerektirmesin diye (OTA ile güvenle gider) emoji kullanır. */
-export function tabIcon(glyph: string) {
-  return function TabGlyph({ focused }: { focused: boolean }) {
-    return <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.45 }}>{glyph}</Text>;
+/** Alt sekme ikonu: aktifken dolu, pasifken çizgi. `name` = Ionicons adı (-outline eki olmadan). */
+export function tabIcon(name: string) {
+  return function TabGlyph({ focused, color }: { focused: boolean; color: string }) {
+    return <Icon name={(focused ? name : `${name}-outline`) as IconName} size={24} color={color} />;
   };
 }

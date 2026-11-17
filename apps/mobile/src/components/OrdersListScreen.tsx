@@ -4,7 +4,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View }
 import { DraftOrderCard } from '@/components/DraftOrderCard';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 function formatDate(d: string | Date): string {
   return new Date(d).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -94,10 +94,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1.5),
-  },
+    gap: spacing(1.5), ...shadow.card },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
   cardHead: { flex: 1, marginRight: spacing(2) },

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 type StockBadge = 'in' | 'low' | 'out' | 'preorder' | 'incoming' | 'closed';
 type ManualReason = 'purchase' | 'production_in' | 'adjustment' | 'correction';
@@ -323,10 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(2.5),
-  },
+    gap: spacing(2.5), ...shadow.card },
   sectionLabel: { fontSize: 13, color: colors.inkMuted, fontWeight: '700' },
   cardMeta: { fontSize: 12, color: colors.inkMuted },
   cardDate: { fontSize: 11, color: colors.inkFaint },

@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 interface Picked {
   variantId: string;
@@ -206,10 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1.5),
-  },
+    gap: spacing(1.5), ...shadow.card },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
   variant: {
     flexDirection: 'row',

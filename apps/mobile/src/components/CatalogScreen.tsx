@@ -15,7 +15,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { useCart, type CartLine } from '@/providers/cart-context';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 type Variant = inferRouterOutputs<AppRouter>['catalog']['list']['items'][number]['variants'][number];
 
@@ -118,7 +118,7 @@ function ProductCard({ productId, productName, categoryName, imageUrl, variants 
           disabled={disabled}
           onPress={onAdd}
         >
-          <Text style={styles.addButtonText}>{added ? 'Siparişe eklendi ✓' : 'Siparişe ekle'}</Text>
+          <Text style={styles.addButtonText}>{added ? 'Eklendi' : 'Siparişe ekle'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -222,10 +222,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(2),
-  },
+    gap: spacing(2), ...shadow.card },
   cardImg: { width: '100%', height: 150, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
   cardTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
   cardMeta: { fontSize: 12, color: colors.inkMuted, marginTop: -spacing(1) },
@@ -234,8 +231,7 @@ const styles = StyleSheet.create({
   stockLabel: { fontSize: 12, color: colors.danger, fontWeight: '600' },
   variantRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) },
   variantChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.pill,
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1),
@@ -249,8 +245,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },

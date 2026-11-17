@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
 import { useCart, type CartLine } from '@/providers/cart-context';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 type Branch = inferRouterOutputs<AppRouter>['orders']['myBranches'][number];
 
@@ -210,10 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(2),
-  },
+    gap: spacing(2), ...shadow.card },
   rowInfo: { gap: 2 },
   rowTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
   rowMeta: { fontSize: 12, color: colors.inkMuted },
@@ -224,8 +221,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -234,8 +230,7 @@ const styles = StyleSheet.create({
   removeText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
   branchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) },
   branchChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.pill,
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
@@ -246,14 +241,11 @@ const styles = StyleSheet.create({
   noteInput: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing(3),
     minHeight: 60,
     fontSize: 13,
     color: colors.ink,
-    textAlignVertical: 'top',
-  },
+    textAlignVertical: 'top', ...shadow.card },
   footer: { gap: spacing(3) },
   totalText: { fontSize: 16, fontWeight: '700', color: colors.ink, textAlign: 'right' },
   submitButton: { backgroundColor: colors.accent, borderRadius: radius.sm, paddingVertical: spacing(3.5), alignItems: 'center' },

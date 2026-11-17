@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 const AUDIENCE_LABEL: Record<string, string> = {
   all: 'Tüm müşteriler',
@@ -80,10 +80,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1),
-  },
+    gap: spacing(1), ...shadow.card },
   expired: { opacity: 0.55 },
   title: { fontSize: 15, fontWeight: '700', color: colors.ink },
   body: { fontSize: 13, color: colors.ink },

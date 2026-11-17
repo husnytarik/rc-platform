@@ -1,6 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
+import { Icon } from '@/components/Icon';
 import { colors } from '@/theme';
 
 /** Üst çubuk sağ tarafı: okunmamış sayacı olan "Bildirim" ve "Hesap". */
@@ -14,7 +15,7 @@ export function HeaderActions({ base }: { base: '/customer' | '/producer' }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 14, gap: 6 }}>
       <TouchableOpacity style={btn} onPress={() => router.push(`${base}/bildirimler` as Href)}>
-        <Text style={{ fontSize: 20 }}>🔔</Text>
+        <Icon name="notifications-outline" size={23} color={colors.ink} />
         {count > 0 && (
           <View style={badge}>
             <Text style={badgeText}>{count > 99 ? '99+' : count}</Text>
@@ -22,7 +23,7 @@ export function HeaderActions({ base }: { base: '/customer' | '/producer' }) {
         )}
       </TouchableOpacity>
       <TouchableOpacity style={btn} onPress={() => router.push(`${base}/hesap` as Href)}>
-        <Text style={{ fontSize: 20 }}>👤</Text>
+        <Icon name="person-circle-outline" size={26} color={colors.ink} />
       </TouchableOpacity>
     </View>
   );

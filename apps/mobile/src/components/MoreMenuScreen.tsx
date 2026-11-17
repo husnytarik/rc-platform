@@ -1,6 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing } from '@/theme';
+import { Icon, type IconName } from '@/components/Icon';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 export interface MoreMenuItem {
   icon?: string;
@@ -17,13 +18,13 @@ export function MoreMenuScreen({ items }: { items: MoreMenuItem[] }) {
       {items.map((it) => (
         <TouchableOpacity key={it.href} style={styles.row} onPress={() => router.push(it.href as Href)}>
           <View style={styles.iconBox}>
-            <Text style={styles.icon}>{it.icon ?? '•'}</Text>
+            <Icon name={(!it.icon ? 'ellipse-outline' : it.icon.endsWith('-outline') ? it.icon : `${it.icon}-outline`) as IconName} size={22} color={colors.accent} />
           </View>
           <View style={styles.texts}>
             <Text style={styles.label}>{it.label}</Text>
             {it.hint && <Text style={styles.hint}>{it.hint}</Text>}
           </View>
-          <Text style={styles.chev}>›</Text>
+          <Icon name="chevron-forward" size={18} color={colors.inkFaint} />
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -37,14 +38,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(4),
-    borderWidth: 1,
-    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing(3),
-  },
-  iconBox: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  icon: { fontSize: 20 },
+    gap: spacing(3), ...shadow.card },
+  iconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   texts: { flex: 1, gap: 2 },
   chev: { fontSize: 24, color: colors.inkFaint },
   label: { fontSize: 15, fontWeight: '700', color: colors.ink },

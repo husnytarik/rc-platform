@@ -23,7 +23,7 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { AddLineModal } from './AddLineModal';
 import { PriceEditModal, type PriceEditTarget } from './PriceEditModal';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 function errText(e: unknown, fallback: string): string {
   const m = (e as { message?: string } | undefined)?.message;
@@ -335,10 +335,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1.5),
-  },
+    gap: spacing(1.5), ...shadow.card },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   code: { fontSize: 17, fontWeight: '700', color: colors.ink },
   value: { fontSize: 14, color: colors.ink, fontWeight: '600' },

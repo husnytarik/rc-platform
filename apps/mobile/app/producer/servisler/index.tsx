@@ -7,7 +7,7 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 const STATUS_COLOR: Record<ServiceRequestStatus, string> = {
   new: colors.accent,
@@ -274,10 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1),
-  },
+    gap: spacing(1), ...shadow.card },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing(2) },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   statusLabel: { fontSize: 12, fontWeight: '700' },
@@ -296,11 +293,8 @@ const styles = StyleSheet.create({
   catalogCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing(3.5),
-    gap: spacing(2),
-  },
+    gap: spacing(2), ...shadow.card },
   catalogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionLabel: { fontSize: 13, color: colors.inkMuted, fontWeight: '700' },
   chevron: { fontSize: 18, color: colors.inkMuted, fontWeight: '700' },

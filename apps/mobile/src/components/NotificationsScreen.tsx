@@ -3,7 +3,7 @@ import { useRouter, type Href } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '@/providers/auth-context';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 function formatDateTime(d: string | Date): string {
   return new Date(d).toLocaleString('tr-TR', {
@@ -93,10 +93,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1),
-  },
+    gap: spacing(1), ...shadow.card },
   unread: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 14, fontWeight: '700', color: colors.ink, flexShrink: 1 },

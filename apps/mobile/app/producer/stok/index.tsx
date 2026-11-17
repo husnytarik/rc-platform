@@ -1,7 +1,7 @@
 import { Link } from 'expo-router';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, shadow } from '@/theme';
 
 type StockBadge = 'in' | 'low' | 'out' | 'preorder' | 'incoming' | 'closed';
 
@@ -91,10 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing(3.5),
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing(1.5),
-  },
+    gap: spacing(1.5), ...shadow.card },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   cardMeta: { fontSize: 12, color: colors.inkMuted },
