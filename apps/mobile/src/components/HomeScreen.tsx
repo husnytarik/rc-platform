@@ -1,6 +1,6 @@
 import { ORDER_STATUS_LABELS_TR, ORDER_STATUS_META, type OrderStatus } from '@rc/shared';
 import { useRouter, type Href } from 'expo-router';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Icon, type IconName } from '@/components/Icon';
 import { TodayRecipeCard } from '@/components/RecipeScreens';
 import { useAuth } from '@/providers/auth-context';
@@ -24,6 +24,8 @@ export function HomeScreen() {
   const utils = trpc.useUtils();
   const feed = trpc.announcement.feed.useQuery();
   const recent = trpc.orders.list.useQuery({ limit: 3 });
+  const tip = trpc.recipe.tipToday.useQuery();
+  const newest = trpc.catalog.newest.useQuery();
   const first = identity?.fullName?.split(' ')[0];
   const go = (href: string): void => router.push(href as Href);
   const refreshing = feed.isFetching || recent.isFetching;
@@ -39,6 +41,8 @@ export function HomeScreen() {
             void feed.refetch();
             void recent.refetch();
             void utils.recipe.today.invalidate();
+            void tip.refetch();
+            void newest.refetch();
           }}
         />
       }
@@ -70,6 +74,44 @@ export function HomeScreen() {
       )}
 
       <TodayRecipeCard base="/customer" />
+
+      {tip.data && (
+        <View style={styles.tipCard}>
+          <Icon name="bulb" size={22} color={colors.accent} />
+          <View style={styles.flex}>
+            <Text style={styles.tipHead}>{tip.data.title ?? 'Günün ipucu'}</Text>
+            <Text style={styles.tipBody}>{tip.data.body}</Text>
+          </View>
+        </View>
+      )}
+
+      {newest.data && newest.data.length > 0 && (
+        <>
+          <View style={styles.sectionRow}>
+            <Text style={styles.section}>Yeni ürünler</Text>
+            <TouchableOpacity onPress={() => go('/customer/katalog')}>
+              <Text style={styles.link}>Katalog</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.newRow}>
+            {newest.data.map((p) => (
+              <TouchableOpacity key={p.id} style={styles.newCard} onPress={() => go('/customer/katalog')}>
+                {p.imageUrl ? (
+                  <Image source={{ uri: p.imageUrl }} style={styles.newImg} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.newImg, styles.newImgEmpty]}>
+                    <Icon name="cafe-outline" size={28} color={colors.inkFaint} />
+                  </View>
+                )}
+                <Text style={styles.newName} numberOfLines={2}>
+                  {p.name}
+                </Text>
+                {p.brand ? <Text style={styles.newBrand}>{p.brand}</Text> : null}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       <View style={styles.tiles}>
         <Tile icon="cube-outline" label="Siparişlerim" onPress={() => go('/customer/siparislerim')} />
@@ -147,6 +189,22 @@ function Tile({ icon, label, onPress }: { icon: IconName; label: string; onPress
 }
 
 const styles = StyleSheet.create({
+  tipCard: {
+    flexDirection: 'row',
+    gap: spacing(3),
+    alignItems: 'flex-start',
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.md,
+    padding: spacing(4),
+  },
+  tipHead: { fontSize: 13, fontWeight: '800', color: colors.accent },
+  tipBody: { fontSize: 14, color: colors.ink, lineHeight: 20, marginTop: 2 },
+  newRow: { gap: spacing(3) },
+  newCard: { width: 130, backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing(2.5), gap: spacing(1), ...shadow.card },
+  newImg: { width: '100%', height: 90, borderRadius: radius.sm, backgroundColor: colors.bg },
+  newImgEmpty: { alignItems: 'center', justifyContent: 'center' },
+  newName: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  newBrand: { fontSize: 11, color: colors.inkMuted },
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing(5), gap: spacing(3), paddingBottom: spacing(10) },
   greet: { fontSize: 13, color: colors.inkMuted, fontWeight: '600' },

@@ -209,6 +209,19 @@ export class CatalogService {
     return rows;
   }
 
+  /** Yüklenen (istemcide küçültülmüş) görseli DB'ye yazar; herkese açık `/media/:id` yolunu döndürür. */
+  async saveImage(base64: string): Promise<string> {
+    const data = Buffer.from(base64, 'base64');
+    if (data.length > 600_000) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Görsel çok büyük.' });
+    const isJpeg = data[0] === 0xff && data[1] === 0xd8;
+    const isPng = data[0] === 0x89 && data[1] === 0x50;
+    if (!isJpeg && !isPng) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Yalnızca JPEG/PNG görsel yüklenebilir.' });
+    }
+    const a = await this.prisma.mediaAsset.create({ data: { mime: isJpeg ? 'image/jpeg' : 'image/png', data } });
+    return `/media/${a.id}`;
+  }
+
   /** Yönetim listesi: pasif ürünler ve servisler dahil, düzenleme ekranı için özet alanlar. */
   async adminList(input: { search?: string; limit?: number; cursor?: string }) {
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 100);
@@ -243,12 +256,24 @@ export class CatalogService {
   }
 
   /** Yönetim detayı: pasif varyantlar dahil, düzenleme formu için ham alanlar. */
+  /** Ana sayfa vitrini: en son eklenen aktif ürünler (fiyatsız). */
+  async newest(limit = 8) {
+    const rows = await this.prisma.product.findMany({
+      where: { isActive: true, isService: false },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: { id: true, name: true, brand: true, imageUrl: true },
+    });
+    return rows;
+  }
+
   async adminProduct(id: string) {
     const p = await this.prisma.product.findUnique({
       where: { id },
       include: { variants: { orderBy: { createdAt: 'asc' } } },
     });
     if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ürün bulunamadı.' });
+    const balances = await this.stock.balances(p.variants.map((v) => v.id));
     return {
       id: p.id,
       code: p.code,
@@ -273,6 +298,7 @@ export class CatalogService {
         contentUom: v.contentUom,
         lowStockThreshold: v.lowStockThreshold != null ? Number(v.lowStockThreshold) : null,
         isActive: v.isActive,
+        stockQty: balances.get(v.id) ?? 0,
       })),
     };
   }

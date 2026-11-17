@@ -1,8 +1,7 @@
+import { ROLES } from '@rc/shared';
 import { z } from 'zod';
 import type { MembershipService } from '../../membership/membership.service';
 import { capabilityProcedure, router } from '../trpc';
-
-const CUSTOMER_ROLES = ['customer_admin', 'branch_manager', 'customer_user'] as const;
 
 const listInput = z
   .object({
@@ -16,9 +15,18 @@ const idInput = z.object({ id: z.string().uuid() });
 
 const approveInput = z.object({
   id: z.string().uuid(),
-  role: z.enum(CUSTOMER_ROLES).optional(),
+  role: z.enum(ROLES).optional(),
   reviewNote: z.string().max(2000).optional(),
 });
+
+const peopleInput = z
+  .object({
+    search: z.string().max(120).optional(),
+    kind: z.enum(['staff', 'customer']).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    cursor: z.string().uuid().optional(),
+  })
+  .default({});
 
 const rejectInput = z.object({
   id: z.string().uuid(),
@@ -47,6 +55,35 @@ export function makeMembershipRouter(membership: MembershipService) {
           reviewNote: input.reviewNote,
         }),
       ),
+
+    people: capabilityProcedure('staff.manage')
+      .input(peopleInput)
+      .query(({ input }) => membership.people(input)),
+
+    setMembership: capabilityProcedure('staff.manage')
+      .input(
+        z.object({
+          membershipId: z.string().uuid(),
+          role: z.enum(ROLES).optional(),
+          status: z.enum(['active', 'suspended']).optional(),
+          maxDiscountPct: z.number().min(0).max(100).optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) => membership.setMembership(input, ctx.user)),
+
+    removeMembership: capabilityProcedure('staff.manage')
+      .input(z.object({ membershipId: z.string().uuid() }))
+      .mutation(({ input, ctx }) => membership.removeMembership(input.membershipId, ctx.user)),
+
+    addStaff: capabilityProcedure('staff.manage')
+      .input(
+        z.object({
+          phone: z.string().min(7).max(30),
+          fullName: z.string().max(200).optional(),
+          role: z.enum(ROLES),
+        }),
+      )
+      .mutation(({ input, ctx }) => membership.addStaff(input, ctx.user)),
 
     reject: capabilityProcedure('membership.review')
       .input(rejectInput)

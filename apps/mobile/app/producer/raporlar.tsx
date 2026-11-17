@@ -12,6 +12,7 @@ const money = (n: number): string =>
 export default function RaporlarScreen() {
   const [days, setDays] = useState(30);
   const q = trpc.report.summary.useQuery({ days });
+  const reps = trpc.report.byRep.useQuery({ days });
   const d = q.data;
 
   return (
@@ -76,6 +77,22 @@ export default function RaporlarScreen() {
                   <Text style={styles.muted}>{p.qty} adet/birim</Text>
                 </View>
                 <Text style={styles.value}>{money(p.total)}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={styles.section}>Satış personeli performansı</Text>
+          <View style={styles.card}>
+            {(reps.data?.reps.length ?? 0) === 0 && <Text style={styles.muted}>Veri yok.</Text>}
+            {reps.data?.reps.map((r) => (
+              <View key={r.id ?? 'none'} style={styles.line}>
+                <View style={styles.flexInner}>
+                  <Text style={styles.value}>{r.name}</Text>
+                  <Text style={styles.muted}>
+                    {r.orders} sipariş · verilen iskonto {money(r.discount)}
+                  </Text>
+                </View>
+                <Text style={styles.value}>{money(r.revenue)}</Text>
               </View>
             ))}
           </View>

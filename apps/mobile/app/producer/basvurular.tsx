@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/providers/auth-context';
 import { colors, radius, spacing, shadow } from '@/theme';
 
 function errText(e: unknown, fallback: string): string {
@@ -12,15 +13,29 @@ function formatDate(d: string | Date): string {
   return new Date(d).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-type CRole = 'customer_admin' | 'branch_manager' | 'customer_user';
+type CRole =
+  | 'customer_admin'
+  | 'branch_manager'
+  | 'customer_user'
+  | 'producer_admin'
+  | 'sales_staff'
+  | 'production_staff'
+  | 'shipping_staff';
 const ROLES: { key: CRole; label: string }[] = [
   { key: 'customer_admin', label: 'Müşteri Yöneticisi' },
   { key: 'branch_manager', label: 'Şube Müdürü' },
   { key: 'customer_user', label: 'Müşteri Kullanıcısı' },
 ];
+const STAFF: { key: CRole; label: string }[] = [
+  { key: 'sales_staff', label: 'Satış Personeli' },
+  { key: 'production_staff', label: 'Üretim Personeli' },
+  { key: 'shipping_staff', label: 'Sevkiyat Personeli' },
+  { key: 'producer_admin', label: 'Yönetici' },
+];
 
 export default function BasvurularScreen() {
   const utils = trpc.useUtils();
+  const { can } = useAuth();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<Record<string, CRole>>({});
@@ -99,7 +114,7 @@ export default function BasvurularScreen() {
               <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
               <Text style={styles.pickLabel}>Verilecek rol</Text>
               <View style={styles.chips}>
-                {ROLES.map((ro) => {
+                {(can('staff.manage') ? [...ROLES, ...STAFF] : ROLES).map((ro) => {
                   const on = (roles[item.id] ?? 'customer_admin') === ro.key;
                   return (
                     <TouchableOpacity

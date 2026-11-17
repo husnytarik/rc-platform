@@ -29,6 +29,7 @@ export interface CreateOrderLineInput {
 
 export interface CreateOrderInput {
   branchId: string;
+  salesRepId?: string;
   note?: string;
   lines: CreateOrderLineInput[];
 }
@@ -96,6 +97,24 @@ export class OrderService {
     });
   }
 
+  /** Müşterinin sipariş verirken muhatap seçebileceği satış personeli listesi. */
+  async salesReps() {
+    const ms = await this.prisma.membership.findMany({
+      where: { status: 'active', role: 'sales_staff', org: { type: 'producer' } },
+      select: { user: { select: { id: true, fullName: true } } },
+    });
+    return ms
+      .map((m) => ({ id: m.user.id, name: m.user.fullName ?? 'Satış personeli' }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  }
+
+  private async repNames(ids: (string | null)[]): Promise<Map<string, string>> {
+    const uniq = [...new Set(ids.filter((x): x is string => !!x))];
+    if (uniq.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({ where: { id: { in: uniq } }, select: { id: true, fullName: true } });
+    return new Map(users.map((u) => [u.id, u.fullName ?? 'Satış personeli']));
+  }
+
   // ── Oluşturma ──────────────────────────────────────────────────────────────
 
   async createOrder(input: CreateOrderInput, actor: OrderActor) {
@@ -114,6 +133,16 @@ export class OrderService {
     const allowed = this.branchScopeFor(actor, orgId);
     if (allowed && !allowed.has(branch.id)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Bu şube için sipariş oluşturamazsınız.' });
+    }
+
+    let salesRepId: string | null = null;
+    if (input.salesRepId) {
+      const rep = await this.prisma.membership.findFirst({
+        where: { userId: input.salesRepId, status: 'active', role: 'sales_staff', org: { type: 'producer' } },
+        select: { id: true },
+      });
+      if (!rep) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Seçilen satış personeli bulunamadı.' });
+      salesRepId = input.salesRepId;
     }
 
     // Aynı varyant birden çok satırda geldiyse birleştir.
@@ -198,6 +227,7 @@ export class OrderService {
           total: subtotal,
           note: input.note,
           placedBy: actor.id,
+          salesRepId,
           lines: {
             create: prepared.map((p) => ({
               itemType: 'product',
@@ -515,6 +545,24 @@ export class OrderService {
   ) {
     const order = await this.loadForWrite(orderRef, actor);
     this.assertPriceEditable(order.status as OrderStatus);
+    if (!actor.roles.includes('producer_admin')) {
+      // Satış personeli: yalnız kendisini muhatap seçen siparişte, yönetici limitine kadar.
+      if (order.salesRepId !== actor.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Bu siparişin muhatabı siz değilsiniz.' });
+      }
+      const ms = await this.prisma.membership.findMany({
+        where: { userId: actor.id, role: 'sales_staff', status: 'active' },
+        select: { maxDiscountPct: true },
+      });
+      const limit = Math.max(0, ...ms.map((m) => Number(m.maxDiscountPct)));
+      const pct = mode === 'percent' ? value : order.subtotal.isZero() ? 0 : (value / Number(order.subtotal)) * 100;
+      if (pct > limit + 0.0001) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: `İskonto limitiniz %${limit}. Daha fazlası için yöneticiye danışın.`,
+        });
+      }
+    }
     if (mode === 'percent' && value > 100) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Yüzde indirim en fazla 100 olabilir.' });
     }
@@ -534,7 +582,7 @@ export class OrderService {
           orderId: order.id,
           type: 'discount',
           actorId: actor.id,
-          actorRole: 'producer_admin',
+          actorRole: actor.roles[0] ?? 'producer_admin',
           note:
             note ??
             (v.isZero()
@@ -548,7 +596,7 @@ export class OrderService {
       await tx.activityLog.create({
         data: {
           actorId: actor.id,
-          actorRole: 'producer_admin',
+          actorRole: actor.roles[0] ?? 'producer_admin',
           orgId: order.customerOrgId,
           action: 'order.set_discount',
           entityType: 'order',
@@ -602,6 +650,7 @@ export class OrderService {
     return {
       ...this.shape(order, actor.roles),
       customerName: order.customerOrg.name,
+      salesRepName: order.salesRepId ? ((await this.repNames([order.salesRepId])).get(order.salesRepId) ?? null) : null,
       customerPhone: order.customerOrg.phone,
       branchAddress: order.branch.address,
       branchPhone: order.branch.phone,
@@ -644,12 +693,14 @@ export class OrderService {
       },
     });
     const hasMore = rows.length > limit;
+    const reps = await this.repNames(rows.map((o) => o.salesRepId));
     const items = (hasMore ? rows.slice(0, limit) : rows).map((o) => ({
       id: o.id,
       keyCode: o.keyCode,
       status: o.status,
       branchName: o.branch.name,
       customerName: o.customerOrg.name,
+      salesRepName: o.salesRepId ? (reps.get(o.salesRepId) ?? null) : null,
       lineCount: o._count.lines,
       total: o.total.toFixed(2),
       currency: o.currency,

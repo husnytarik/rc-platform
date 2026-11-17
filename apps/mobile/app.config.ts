@@ -60,6 +60,13 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-notifications',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Ürün görseli seçmek için fotoğraflarınıza erişim gerekir.',
+        cameraPermission: 'Ürün fotoğrafı çekmek için kameraya erişim gerekir.',
+      },
+    ],
   ],
 
   // WEB_BASE_URL: GitHub Pages alt yolu (örn. /rc-platform). Yalnız web derlemesini etkiler.

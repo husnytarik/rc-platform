@@ -43,7 +43,6 @@ export default function ProducerLayout() {
       {secondary.map((item) => (
         <Tabs.Screen key={item.key} name={item.key} options={{ href: null, title: item.label }} />
       ))}
-      <Tabs.Screen name="tarifler" options={{ href: null, title: 'Reçeteler' }} />
       <Tabs.Screen name="bildirimler" options={{ href: null, title: 'Bildirimler' }} />
       <Tabs.Screen name="hesap" options={{ href: null, title: 'Hesap' }} />
     </Tabs>

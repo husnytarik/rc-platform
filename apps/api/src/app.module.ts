@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TrpcModule } from './trpc/trpc.module';
 import { HealthController } from './health/health.controller';
+import { MediaController } from './health/media.controller';
 import { AuditInterceptor } from './common/audit.interceptor';
 
 @Module({
@@ -20,7 +21,7 @@ import { AuditInterceptor } from './common/audit.interceptor';
     AuthModule,
     TrpcModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, MediaController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
 })
 export class AppModule {}

@@ -71,7 +71,7 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
               </View>
             </View>
             <Text style={styles.cardMeta}>
-              {producerView ? item.branchName : `${item.customerName} · ${item.branchName}`} · {item.lineCount} kalem
+              {producerView ? item.branchName : `${item.customerName} · ${item.branchName}`} · {item.lineCount} kalem{item.salesRepName ? ` · ${item.salesRepName}` : ''}
             </Text>
             <View style={styles.cardBottom}>
               <Text style={styles.cardTotal}>

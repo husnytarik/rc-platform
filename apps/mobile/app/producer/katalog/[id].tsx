@@ -1,5 +1,5 @@
 import { UOM_LABELS_TR, UOMS, type Uom } from '@rc/shared';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ImageField } from '@/components/ImageField';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing, shadow } from '@/theme';
 
@@ -239,6 +240,7 @@ function NewVariantForm({ productId }: { productId: string }) {
 
 export default function UrunDuzenleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const utils = trpc.useUtils();
   const { data: p, isLoading } = trpc.catalog.adminProduct.useQuery({ id });
   const categories = trpc.catalog.categories.useQuery();
@@ -313,9 +315,8 @@ export default function UrunDuzenleScreen() {
           <TextInput style={[styles.input, styles.multiline]} value={description} onChangeText={setDescription} multiline placeholder="opsiyonel" placeholderTextColor={colors.inkFaint} />
         </View>
         <View style={styles.field}>
-          <Text style={styles.label}>Görsel URL</Text>
-          {imageUrl.trim().startsWith('http') && <Image source={{ uri: imageUrl.trim() }} style={{ width: '100%', height: 160, borderRadius: radius.sm, marginBottom: spacing(2) }} resizeMode="cover" />}
-          <TextInput style={styles.input} value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" keyboardType="url" placeholder="https://…" placeholderTextColor={colors.inkFaint} />
+          <Text style={styles.label}>Görsel</Text>
+          <ImageField value={imageUrl} onChange={setImageUrl} />
         </View>
         {categories.data && categories.data.length > 0 && (
           <View style={styles.field}>
@@ -373,12 +374,17 @@ export default function UrunDuzenleScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>{v.name}</Text>
                   <Text style={styles.cardMeta}>
-                    {v.code} · {v.basePrice.toFixed(2)} · {UOM_LABELS_TR[v.orderUom as Uom]}
+                    {v.code} · {v.basePrice.toFixed(2)} · {UOM_LABELS_TR[v.orderUom as Uom]} · stok {v.stockQty}
                     {!v.isActive ? ' · pasif' : ''}
                   </Text>
                 </View>
                 <Text style={styles.chevron}>{isOpen ? '−' : '+'}</Text>
               </TouchableOpacity>
+              {isOpen && (
+                <TouchableOpacity onPress={() => router.push({ pathname: '/producer/stok/[id]', params: { id: p.id } })}>
+                  <Text style={styles.stockLink}>Stok gir / say ›</Text>
+                </TouchableOpacity>
+              )}
               {isOpen && (
                 <VariantEditor
                   productId={p.id}
@@ -456,6 +462,7 @@ const styles = StyleSheet.create({
   ghostButtonText: { color: colors.inkMuted, fontWeight: '600', fontSize: 12 },
   newButton: { borderWidth: 1, borderColor: colors.accent, borderRadius: radius.sm, paddingVertical: spacing(3), alignItems: 'center' },
   newButtonText: { color: colors.accent, fontWeight: '700', fontSize: 13 },
+  stockLink: { color: colors.accent, fontWeight: '800', fontSize: 13 },
   variantBlock: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing(2.5), gap: spacing(2) },
   variantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
   rowTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },

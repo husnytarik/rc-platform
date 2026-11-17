@@ -151,7 +151,8 @@ function OverrideCard({ productId }: { productId: string }) {
   );
 }
 
-function LedgerPanel({ variantId, productId }: { variantId: string; productId: string }) {
+function LedgerPanel({ variantId, productId, balance }: { variantId: string; productId: string; balance: number | null }) {
+  const [count, setCount] = useState(false);
   const utils = trpc.useUtils();
   const [delta, setDelta] = useState('');
   const [reason, setReason] = useState<ManualReason>('purchase');
@@ -176,11 +177,29 @@ function LedgerPanel({ variantId, productId }: { variantId: string; productId: s
     onError: (e) => setError(errText(e, 'Hareket eklenemedi.')),
   });
 
-  const parsedDelta = Number(delta.replace(',', '.'));
-  const canSubmit = delta.trim() !== '' && Number.isFinite(parsedDelta) && parsedDelta !== 0;
+  const typed = Number(delta.replace(',', '.'));
+  const parsedDelta = count ? typed - (balance ?? 0) : typed;
+  const canSubmit = delta.trim() !== '' && Number.isFinite(typed) && Number.isFinite(parsedDelta) && parsedDelta !== 0 && !(count && typed < 0);
 
   return (
     <View style={styles.ledger}>
+      <Text style={styles.rowTitle}>Mevcut stok: {balance ?? '—'}</Text>
+      <View style={styles.chipRow}>
+        {([false, true] as const).map((c) => (
+          <TouchableOpacity
+            key={String(c)}
+            style={[styles.chip, count === c && styles.chipActive]}
+            onPress={() => {
+              setCount(c);
+              setDelta('');
+            }}
+          >
+            <Text style={[styles.chipText, count === c && styles.chipTextActive]}>
+              {c ? 'Sayım: toplam adet gir' : 'Giriş / çıkış (+/−)'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <View style={styles.chipRow}>
         {MANUAL_REASONS.map((r) => (
           <TouchableOpacity
@@ -197,9 +216,9 @@ function LedgerPanel({ variantId, productId }: { variantId: string; productId: s
           style={[styles.input, styles.deltaInput]}
           value={delta}
           onChangeText={setDelta}
-          placeholder="+10 / -5"
+          placeholder={count ? 'Toplam adet' : '+10 / -5'}
           placeholderTextColor={colors.inkFaint}
-          keyboardType="numbers-and-punctuation"
+          keyboardType={count ? 'decimal-pad' : 'numbers-and-punctuation'}
         />
         <TextInput
           style={[styles.input, { flex: 1 }]}
@@ -212,12 +231,12 @@ function LedgerPanel({ variantId, productId }: { variantId: string; productId: s
       <TouchableOpacity
         style={[styles.primaryButton, !canSubmit && styles.primaryButtonDisabled]}
         disabled={!canSubmit || adjust.isPending}
-        onPress={() => adjust.mutate({ variantId, delta: parsedDelta, reason, note: note.trim() || undefined })}
+        onPress={() => adjust.mutate({ variantId, delta: parsedDelta, reason: count ? 'adjustment' : reason, note: note.trim() || (count ? `Sayım: ${typed}` : undefined) })}
       >
         {adjust.isPending ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.primaryButtonText}>Hareket ekle</Text>
+          <Text style={styles.primaryButtonText}>{count ? `Stoğu ${Number.isFinite(typed) && delta.trim() ? typed : '…'} yap` : 'Hareket ekle'}</Text>
         )}
       </TouchableOpacity>
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -304,7 +323,7 @@ export default function StokDetailScreen() {
                     <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
                   </View>
                 </TouchableOpacity>
-                {isOpen && <LedgerPanel variantId={v.id} productId={p.id} />}
+                {isOpen && <LedgerPanel variantId={v.id} productId={p.id} balance={v.stock.available} />}
               </View>
             );
           })

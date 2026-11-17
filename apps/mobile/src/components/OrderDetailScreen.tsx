@@ -76,6 +76,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
   const o = q.data;
   const isProducerView = can('order.view.all');
   const canPrice = can('price.manage') && !isTerminal(o.status as OrderStatus);
+  const canDiscount = (can('price.manage') || can('discount.rep')) && !isTerminal(o.status as OrderStatus);
   const status = o.status as OrderStatus;
   const meta = ORDER_STATUS_META[status];
   const reachedIdx = MAIN_LINE.indexOf(status);
@@ -170,6 +171,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
       <Text style={styles.section}>Teslimat</Text>
       <View style={styles.card}>
         <Text style={styles.value}>{o.branchName}</Text>
+        {o.salesRepName ? <Text style={styles.muted}>Satış temsilcisi: {o.salesRepName}</Text> : null}
         {o.branchAddress ? <Text style={styles.muted}>{o.branchAddress}</Text> : null}
         {(o.branchPhone ?? o.customerPhone) ? (
           <TouchableOpacity onPress={() => callPhone((o.branchPhone ?? o.customerPhone) as string)}>
@@ -227,7 +229,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             </View>
           </>
         )}
-        {canPrice && (
+        {canDiscount && (
           <TouchableOpacity
             onPress={() => setPriceTarget({ kind: 'discount', type: o.discountType, value: o.discountValue })}
           >

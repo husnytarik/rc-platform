@@ -1,7 +1,7 @@
 import { UOMS } from '@rc/shared';
 import { z } from 'zod';
 import type { CatalogService } from '../../catalog/catalog.service';
-import { capabilityProcedure, router } from '../trpc';
+import { capabilityProcedure, protectedProcedure, router } from '../trpc';
 
 const listInput = z
   .object({
@@ -86,6 +86,8 @@ const updateVariantInput = z.object({
  */
 export function makeCatalogRouter(catalog: CatalogService) {
   return router({
+    newest: protectedProcedure.query(() => catalog.newest()),
+
     categories: capabilityProcedure('catalog.view').query(() => catalog.categories()),
 
     list: capabilityProcedure('catalog.view')
@@ -109,6 +111,10 @@ export function makeCatalogRouter(catalog: CatalogService) {
     adminProduct: capabilityProcedure('catalog.manage')
       .input(idInput)
       .query(({ input }) => catalog.adminProduct(input.id)),
+
+    uploadImage: capabilityProcedure('catalog.manage')
+      .input(z.object({ base64: z.string().min(100).max(900_000) }))
+      .mutation(async ({ input }) => ({ path: await catalog.saveImage(input.base64) })),
 
     createProduct: capabilityProcedure('catalog.manage')
       .input(createProductInput)

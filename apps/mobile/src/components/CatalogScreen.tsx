@@ -91,6 +91,9 @@ function ProductCard({ productId, productName, categoryName, imageUrl, variants 
         <Text style={styles.cardPrice}>
           {variant?.price ? `${variant.price.unitPrice} ${variant.price.currency}` : 'Fiyat yok'}
         </Text>
+        {variant?.stock.available != null && (
+          <Text style={styles.stockQty}>Stok: {variant.stock.available}</Text>
+        )}
         {stockLabel && <Text style={styles.stockLabel}>{stockLabel}</Text>}
       </View>
 
@@ -228,6 +231,7 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 12, color: colors.inkMuted, marginTop: -spacing(1) },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardPrice: { fontSize: 14, color: colors.accent, fontWeight: '700' },
+  stockQty: { fontSize: 12, color: colors.inkMuted, fontWeight: '700' },
   stockLabel: { fontSize: 12, color: colors.danger, fontWeight: '600' },
   variantRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(1.5) },
   variantChip: {

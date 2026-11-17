@@ -57,6 +57,8 @@ export function DraftOrderCard() {
   const cart = useCart();
   const utils = trpc.useUtils();
   const branches = trpc.orders.myBranches.useQuery();
+  const reps = trpc.orders.salesReps.useQuery();
+  const [repId, setRepId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const activeBranchId = cart.branchId ?? branches.data?.[0]?.id ?? null;
@@ -64,6 +66,7 @@ export function DraftOrderCard() {
   const create = trpc.orders.create.useMutation({
     onSuccess: () => {
       cart.clear();
+      setRepId(null);
       void utils.orders.list.invalidate();
     },
     onError: (e) => setError(errText(e, 'Sipariş gönderilemedi. Tekrar dener misin?')),
@@ -77,6 +80,7 @@ export function DraftOrderCard() {
     setError(null);
     create.mutate({
       branchId: activeBranchId,
+      salesRepId: repId ?? undefined,
       note: cart.note.trim() || undefined,
       lines: cart.lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
     });
@@ -142,6 +146,23 @@ export function DraftOrderCard() {
           <Text style={styles.empty}>Şube bulunamadı.</Text>
         )}
       </View>
+
+      {reps.data && reps.data.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Muhatap satış temsilcisi</Text>
+          <View style={styles.branchRow}>
+            {[{ id: null, name: 'Fark etmez' }, ...reps.data].map((r) => (
+              <TouchableOpacity
+                key={r.id ?? 'none'}
+                style={[styles.branchChip, r.id === repId && styles.branchChipActive]}
+                onPress={() => setRepId(r.id)}
+              >
+                <Text style={[styles.branchChipText, r.id === repId && styles.branchChipTextActive]}>{r.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Not (opsiyonel)</Text>

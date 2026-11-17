@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ImageField } from '@/components/ImageField';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing } from '@/theme';
 
@@ -70,16 +71,8 @@ export default function YeniUrunScreen() {
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Görsel URL</Text>
-        <TextInput
-          style={styles.input}
-          value={imageUrl}
-          onChangeText={setImageUrl}
-          placeholder="https://…"
-          placeholderTextColor={colors.inkFaint}
-          autoCapitalize="none"
-          keyboardType="url"
-        />
+        <Text style={styles.label}>Görsel</Text>
+        <ImageField value={imageUrl} onChange={setImageUrl} />
       </View>
 
       {categories.data && categories.data.length > 0 && (

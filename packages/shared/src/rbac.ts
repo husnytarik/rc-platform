@@ -25,6 +25,10 @@ export const CAPABILITIES = [
   'announcement.manage',
   'report.view',
   'import.run',
+  'discount.rep', // kendi müşteri siparişinde, yöneticinin tanıdığı limite kadar iskonto
+  'salesreport.write', // elle doldurulan satış raporu girdileri
+  'content.manage', // reçete + ipucu girişi (ana sayfa içeriği)
+  'staff.manage', // tüm kullanıcılar + personel rolleri (yalnız producer_admin)
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -41,10 +45,13 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'order.confirm',
     'order.add_line',
     'order.cancel',
-    'membership.review',
     'customer.manage',
     'ticket.handle',
     'service.manage',
+    'discount.rep',
+    'salesreport.write',
+    'content.manage',
+    'announcement.manage',
     'report.view',
   ],
 

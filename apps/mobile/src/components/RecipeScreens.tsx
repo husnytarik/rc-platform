@@ -48,14 +48,21 @@ export function TodayRecipeCard({ base }: { base: '/customer' | '/producer' }) {
 
 export function RecipeListScreen({ base }: { base: '/customer' | '/producer' }) {
   const router = useRouter();
-  const list = trpc.recipe.list.useQuery();
+  const admin = base === '/producer';
+  const list = admin ? trpc.recipe.adminList.useQuery() : trpc.recipe.list.useQuery();
   return (
     <ScrollView
       style={styles.flex}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={list.isFetching} onRefresh={() => void list.refetch()} />}
     >
-      <TodayRecipeCard base={base} />
+      {admin ? (
+        <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/producer/tarifler/yeni' as Href)}>
+          <Text style={styles.addBtnText}>+ Yeni reçete</Text>
+        </TouchableOpacity>
+      ) : (
+        <TodayRecipeCard base={base} />
+      )}
       <Text style={styles.section}>Tüm reçeteler</Text>
       {list.isLoading ? (
         <ActivityIndicator color={colors.accent} />
@@ -75,7 +82,15 @@ export function RecipeListScreen({ base }: { base: '/customer' | '/producer' }) 
                 </Text>
               )}
               <Meta r={r} />
+              {'isActive' in r && !r.isActive && <Text style={styles.draft}>Yayında değil</Text>}
             </View>
+            {admin && (
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/producer/tarifler/duzenle', params: { id: r.id } } as Href)}
+              >
+                <Text style={styles.edit}>Düzenle</Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         ))
       )}
@@ -129,6 +144,10 @@ export function RecipeDetailScreen({ id }: { id: string }) {
 }
 
 const styles = StyleSheet.create({
+  addBtn: { backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: spacing(3.5), alignItems: 'center' },
+  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  draft: { color: colors.danger, fontSize: 11, fontWeight: '700' },
+  edit: { color: colors.accent, fontWeight: '800', fontSize: 13, paddingHorizontal: spacing(2) },
   flex: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing(5), gap: spacing(3), paddingBottom: spacing(10) },
   today: { backgroundColor: colors.surface, borderRadius: radius.lg, overflow: 'hidden', ...shadow.card },

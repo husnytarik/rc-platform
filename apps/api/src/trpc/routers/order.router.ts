@@ -7,6 +7,7 @@ const statusEnum = z.enum([...ORDER_STATUSES] as [OrderStatus, ...OrderStatus[]]
 
 const createInput = z.object({
   branchId: z.string().uuid(),
+  salesRepId: z.string().uuid().optional(),
   note: z.string().max(2000).optional(),
   lines: z
     .array(
@@ -54,6 +55,8 @@ export function makeOrderRouter(orders: OrderService) {
       .input(createInput)
       .mutation(({ input, ctx }) => orders.createOrder(input, ctx.user)),
 
+    salesReps: capabilityProcedure('order.create').query(({ ctx }) => (ctx ? orders.salesReps() : orders.salesReps())),
+
     myBranches: capabilityProcedure('order.create').query(({ ctx }) => orders.myBranches(ctx.user)),
 
     list: capabilityAnyProcedure(viewCaps)
@@ -95,8 +98,8 @@ export function makeOrderRouter(orders: OrderService) {
         orders.setLinePrice(input.order, input.lineId, input.unitPrice, input.note, ctx.user),
       ),
 
-    /** Yalnız yönetici: siparişe yüzde/tutar indirimi (0 = kaldır). */
-    setDiscount: capabilityProcedure('price.manage')
+    /** Yönetici (limitsiz) veya muhatap satış personeli (kendi limitine kadar): siparişe iskonto (0 = kaldır). */
+    setDiscount: capabilityAnyProcedure(['price.manage', 'discount.rep'])
       .input(
         z.object({
           order: orderRef,
