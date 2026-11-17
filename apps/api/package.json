@@ -20,7 +20,8 @@
     "prisma:studio": "dotenv -e ../../.env -- prisma studio",
     "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
     "db:seed:demo": "dotenv -e ../../.env -- tsx prisma/seed-demo.ts",
-    "db:seed:bulk": "dotenv -e ../../.env -- tsx prisma/seed-bulk.ts"
+    "db:seed:bulk": "dotenv -e ../../.env -- tsx prisma/seed-bulk.ts",
+    "db:seed:content": "dotenv -e ../../.env -- tsx prisma/seed-content.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
