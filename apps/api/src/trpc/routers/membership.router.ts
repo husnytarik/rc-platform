@@ -71,6 +71,10 @@ export function makeMembershipRouter(membership: MembershipService) {
       )
       .mutation(({ input, ctx }) => membership.setMembership(input, ctx.user)),
 
+    setUserActive: capabilityProcedure('staff.manage')
+      .input(z.object({ userId: z.string().uuid(), active: z.boolean() }))
+      .mutation(({ input, ctx }) => membership.setUserActive(input, ctx.user)),
+
     removeMembership: capabilityProcedure('staff.manage')
       .input(z.object({ membershipId: z.string().uuid() }))
       .mutation(({ input, ctx }) => membership.removeMembership(input.membershipId, ctx.user)),

@@ -5,6 +5,7 @@ export interface Identity {
   /** Google/Apple ile giriş kimliği telefon taşımaz — kayıt formunda toplanana kadar null. */
   phone: string | null;
   fullName: string | null;
+  email?: string | null;
   roles: Role[];
   memberships: { orgId: string; role: Role; branchScope: unknown }[];
   /** En az bir aktif üyelik yoksa başvuru onay bekliyor demektir. */

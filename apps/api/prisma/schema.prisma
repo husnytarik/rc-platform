@@ -240,7 +240,8 @@ model User {
   tcHash         String?      // HMAC(TC kimlik no) — düz TC saklanmaz; ilk doğrulanmış girişte bağlanır
   fullName       String?
   email          String?
-  isActive       Boolean      @default(true)
+  isActive       Boolean      @default(true) // false = dondurulmuş veya silinmiş (veri korunur)
+  deletedAt      DateTime?    // kullanıcı kendi hesabını sildiyse (soft delete)
   lastLoginAt    DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

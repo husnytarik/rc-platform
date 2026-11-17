@@ -250,6 +250,9 @@ export class MembershipService {
         fullName: u.fullName,
         phone: u.phone,
         isStaff: u.memberships.some((m) => m.org.type === 'producer'),
+        isActive: u.isActive,
+        deletedAt: u.deletedAt,
+        email: u.email,
         memberships: u.memberships.map((m) => ({
           id: m.id,
           role: m.role as Role,
@@ -263,6 +266,29 @@ export class MembershipService {
       })),
       nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
     };
+  }
+
+  /** Yönetici: kişinin hesabını dondurur / açar (silinmiş hesabı da geri açar). Veri silinmez. */
+  async setUserActive(input: { userId: string; active: boolean }, actor: ReviewActor): Promise<{ ok: true }> {
+    if (input.userId === actor.id) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Kendi hesabınızı dondurmazsınız.' });
+    const u = await this.prisma.user.findUnique({ where: { id: input.userId }, select: { id: true, isActive: true } });
+    if (!u) throw new TRPCError({ code: 'NOT_FOUND', message: 'Kullanıcı bulunamadı.' });
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: u.id }, data: { isActive: input.active, ...(input.active ? { deletedAt: null } : {}) } }),
+      ...(input.active ? [] : [this.prisma.refreshToken.deleteMany({ where: { userId: u.id } }), this.prisma.deviceToken.deleteMany({ where: { userId: u.id } })]),
+      this.prisma.activityLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: actor.roles[0],
+          action: input.active ? 'people.user_unfreeze' : 'people.user_freeze',
+          entityType: 'user',
+          entityId: u.id,
+          before: { isActive: u.isActive },
+          after: { isActive: input.active },
+        },
+      }),
+    ]);
+    return { ok: true };
   }
 
   private async guardSelf(m: { userId: string; role: string; org: { type: string } }, actor: ReviewActor & { id: string }) {

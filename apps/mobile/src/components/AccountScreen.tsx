@@ -2,6 +2,7 @@ import { isProducerRole, ROLE_LABELS_TR, type Role } from '@rc/shared';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -179,9 +180,113 @@ function CompanyCard({ orgId }: { orgId: string }) {
   );
 }
 
+function ProfileCard() {
+  const { identity } = useAuth();
+  const utils = trpc.useUtils();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const save = trpc.auth.updateProfile.useMutation({
+    onSuccess: () => {
+      setEditing(false);
+      void utils.auth.me.invalidate();
+    },
+    onError: (e) => setError(errText(e, 'Kaydedilemedi. E-posta biçimini kontrol edin.')),
+  });
+  if (!identity) return null;
+  const incomplete = !identity.fullName;
+
+  if (!editing) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.name}>{displayName(identity)}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setName(identity.fullName ?? '');
+              setEmail(identity.email ?? '');
+              setError(null);
+              setEditing(true);
+            }}
+          >
+            <Text style={styles.editLink}>{incomplete ? 'Profili doldur' : 'Düzenle'}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.rows}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Telefon</Text>
+            <Text style={styles.rowValue}>{identity.phone ?? '—'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>E-posta</Text>
+            <Text style={styles.rowValue}>{identity.email || '—'}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitleSm}>Profil bilgileri</Text>
+      {error && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+      <View style={styles.field}>
+        <Text style={styles.label}>Ad soyad</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} placeholderTextColor={colors.inkFaint} />
+      </View>
+      <View style={styles.field}>
+        <Text style={styles.label}>E-posta</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholderTextColor={colors.inkFaint}
+        />
+      </View>
+      <Text style={styles.rowLabel}>Telefon numarası giriş kimliğiniz olduğu için buradan değiştirilemez.</Text>
+      <View style={styles.editActions}>
+        <TouchableOpacity style={styles.cancelButton} onPress={() => setEditing(false)} disabled={save.isPending}>
+          <Text style={styles.cancelButtonText}>Vazgeç</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.saveButton, (name.trim().length < 2 || save.isPending) && styles.saveButtonDisabled]}
+          disabled={name.trim().length < 2 || save.isPending}
+          onPress={() => {
+            setError(null);
+            save.mutate({ fullName: name.trim(), email: email.trim() || null });
+          }}
+        >
+          {save.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Kaydet</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export function AccountScreen() {
   const { identity, can, logout } = useAuth();
+  const del = trpc.auth.deleteAccount.useMutation({
+    onSuccess: () => logout(),
+    onError: (e) => Alert.alert('Hesap silinemedi', errText(e, 'Bir hata oluştu.')),
+  });
   if (!identity) return null;
+  const isStaff = identity.roles.some((r) => isProducerRole(r as Role));
+  const onDelete = (): void => {
+    Alert.alert(
+      'Hesabı sil',
+      'Hesabınız kapatılacak ve bu telefonla giriş yapamayacaksınız. Sipariş geçmişiniz kayıtlarda saklanır; geri açtırmak için yönetici ile iletişime geçebilirsiniz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Hesabı sil', style: 'destructive', onPress: () => del.mutate() },
+      ],
+    );
+  };
 
   // Gönderilmemiş sipariş cihazda kullanıcı başına saklanır; çıkışta silinmez.
   const onLogout = (): void => {
@@ -194,22 +299,19 @@ export function AccountScreen() {
 
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.card}>
-        <Text style={styles.name}>{displayName(identity)}</Text>
-        {roleLabels.length > 0 && <Text style={styles.role}>{roleLabels}</Text>}
-        <View style={styles.rows}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Telefon</Text>
-            <Text style={styles.rowValue}>{identity.phone ?? '—'}</Text>
-          </View>
-        </View>
-      </View>
+      <ProfileCard />
+      {roleLabels.length > 0 && <Text style={styles.role}>{roleLabels}</Text>}
 
       {orgId && <CompanyCard orgId={orgId} />}
 
       <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
         <Text style={styles.logoutButtonText}>Çıkış yap</Text>
       </TouchableOpacity>
+      {!isStaff && (
+        <TouchableOpacity onPress={onDelete} disabled={del.isPending}>
+          <Text style={styles.deleteLink}>{del.isPending ? 'Siliniyor…' : 'Hesabımı sil'}</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }
@@ -267,5 +369,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(3.5),
     alignItems: 'center',
   },
+  deleteLink: { color: colors.inkMuted, textAlign: 'center', fontSize: 13, textDecorationLine: 'underline' },
   logoutButtonText: { color: colors.danger, fontSize: 15, fontWeight: '700' },
 });

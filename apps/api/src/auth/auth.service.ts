@@ -139,10 +139,12 @@ export class AuthService {
 
     const existing = await this.prisma.user.findUnique({
       where: { phone },
-      select: { isActive: true, tcHash: true },
+      select: { isActive: true, deletedAt: true, tcHash: true },
     });
     if (existing) {
-      if (!existing.isActive) throw new ForbiddenException('Bu hesap devre dışı.');
+      if (!existing.isActive) {
+        throw new ForbiddenException(existing.deletedAt ? 'Bu hesap silinmiş. Geri açtırmak için yönetici ile iletişime geçin.' : 'Bu hesap dondurulmuş. Yönetici ile iletişime geçin.');
+      }
       if (existing.tcHash && !this.safeEq(existing.tcHash, tcHash)) {
         throw new BadRequestException('Telefon ve T.C. kimlik numarası eşleşmiyor.');
       }
@@ -232,7 +234,9 @@ export class AuthService {
     if (claimed.count !== 1) throw invalid;
 
     let user = await this.prisma.user.findUnique({ where: { phone } });
-    if (user && !user.isActive) throw new ForbiddenException('Bu hesap devre dışı.');
+    if (user && !user.isActive) {
+      throw new ForbiddenException(user.deletedAt ? 'Bu hesap silinmiş. Geri açtırmak için yönetici ile iletişime geçin.' : 'Bu hesap dondurulmuş. Yönetici ile iletişime geçin.');
+    }
     if (!user) {
       user = await this.prisma.user.create({
         data: { provider: 'phone', providerUserId: phone, phone, tcHash },
@@ -482,6 +486,27 @@ export class AuthService {
       refreshToken: pair.refreshToken,
       refreshExpiresAt: pair.refreshExpiresAt.toISOString(),
     };
+  }
+
+  async updateProfile(userId: string, input: { fullName: string; email: string | null }): Promise<{ ok: true }> {
+    await this.prisma.user.update({ where: { id: userId }, data: { fullName: input.fullName, email: input.email } });
+    return { ok: true };
+  }
+
+  /** Müşteri hesabını kapatır: giriş engellenir, oturumlar düşer; sipariş vb. veriler korunur. Personel kendini silemez. */
+  async deleteAccount(userId: string, roles: Role[]): Promise<{ ok: true }> {
+    if (roles.some((r) => (PRODUCER_ROLES as readonly string[]).includes(r))) {
+      throw new ForbiddenException('Personel hesabı yalnızca yönetici tarafından kapatılabilir.');
+    }
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { isActive: false, deletedAt: new Date() } }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+      this.prisma.deviceToken.deleteMany({ where: { userId } }),
+      this.prisma.activityLog.create({
+        data: { actorId: userId, actorRole: roles[0], action: 'account.self_delete', entityType: 'user', entityId: userId },
+      }),
+    ]);
+    return { ok: true };
   }
 
   async logout(rawRefresh: string): Promise<void> {

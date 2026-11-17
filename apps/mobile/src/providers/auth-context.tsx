@@ -54,6 +54,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }): Reac
       id: meQuery.data.id,
       phone: meQuery.data.phone,
       fullName: meQuery.data.fullName,
+      email: meQuery.data.email,
       roles: meQuery.data.roles as Role[],
       memberships: meQuery.data.memberships as Identity['memberships'],
       pending: meQuery.data.memberships.length === 0,

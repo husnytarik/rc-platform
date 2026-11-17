@@ -13,6 +13,7 @@ export interface AuthedUser {
   id: string;
   phone: string | null;
   fullName: string | null;
+  email?: string | null;
   /** Yalnızca aktif üyelikler. Boşsa hesap onay bekliyor. */
   memberships: AuthedMembership[];
   /** Aktif üyeliklerdeki benzersiz roller. */
@@ -59,7 +60,7 @@ export function makeCreateContext(deps: ContextDeps) {
       where: { id: userId },
       include: { memberships: { where: { status: 'active' } } },
     });
-    if (!user) return { reqInfo, user: null };
+    if (!user || !user.isActive) return { reqInfo, user: null };
 
     const memberships: AuthedMembership[] = user.memberships.map((m) => ({
       orgId: m.orgId,
@@ -73,6 +74,7 @@ export function makeCreateContext(deps: ContextDeps) {
         id: user.id,
         phone: user.phone,
         fullName: user.fullName,
+        email: user.email,
         memberships,
         roles: [...new Set(memberships.map((m) => m.role))],
       },

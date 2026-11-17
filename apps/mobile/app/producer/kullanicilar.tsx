@@ -109,6 +109,7 @@ export default function KullanicilarScreen() {
             <View style={styles.cardTop}>
               <Text style={styles.name}>{item.fullName ?? '—'}</Text>
               {item.isStaff && <Text style={styles.staffBadge}>Personel</Text>}
+              {!item.isActive && <Text style={styles.suspended}>{item.deletedAt ? 'Silindi' : 'Donduruldu'}</Text>}
             </View>
             <Text style={styles.meta}>{item.phone ?? '—'}</Text>
             {item.memberships.map((m) => (
@@ -140,8 +141,9 @@ function PersonModal({ person, onClose, onChanged }: { person: Person | null; on
   const [error, setError] = useState<string | null>(null);
   const set = trpc.membership.setMembership.useMutation();
   const remove = trpc.membership.removeMembership.useMutation();
+  const freeze = trpc.membership.setUserActive.useMutation();
   const addStaff = trpc.membership.addStaff.useMutation();
-  const busy = set.isPending || remove.isPending || addStaff.isPending;
+  const busy = set.isPending || remove.isPending || addStaff.isPending || freeze.isPending;
   const cb = {
     onSuccess: () => {
       setError(null);
@@ -158,6 +160,15 @@ function PersonModal({ person, onClose, onChanged }: { person: Person | null; on
             <>
               <Text style={styles.h2}>{person.fullName ?? '—'}</Text>
               <Text style={styles.meta}>{person.phone}</Text>
+              {person.email ? <Text style={styles.meta}>{person.email}</Text> : null}
+              {!person.isActive && (
+                <Text style={styles.suspended}>{person.deletedAt ? 'Hesap kullanıcı tarafından silindi' : 'Hesap donduruldu'}</Text>
+              )}
+              <TouchableOpacity disabled={busy} onPress={() => freeze.mutate({ userId: person.id, active: !person.isActive }, cb)}>
+                <Text style={person.isActive ? styles.danger : styles.link}>
+                  {person.isActive ? 'Hesabı dondur' : person.deletedAt ? 'Hesabı geri aç' : 'Hesabı çöz'}
+                </Text>
+              </TouchableOpacity>
 
               {person.memberships.map((m) => {
                 const staff = m.orgType === 'producer';

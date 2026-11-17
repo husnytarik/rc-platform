@@ -48,11 +48,20 @@ export function makeAuthRouter(auth: AuthService) {
       return { ok: true };
     }),
 
+    /** Kullanıcı kendi profilini (ad, e-posta) doldurur/günceller. */
+    updateProfile: protectedProcedure
+      .input(z.object({ fullName: z.string().trim().min(2).max(120), email: z.string().trim().email().max(200).nullable() }))
+      .mutation(({ input, ctx }) => auth.updateProfile(ctx.user.id, input)),
+
+    /** Müşteri hesabını kapatır (soft delete; veriler korunur, yönetici görür/geri açabilir). */
+    deleteAccount: protectedProcedure.mutation(({ ctx }) => auth.deleteAccount(ctx.user.id, ctx.user.roles)),
+
     /** Oturum sahibinin kendi profili + rolleri (istemci açılışta çağırır). */
     me: protectedProcedure.query(async ({ ctx }) => ({
       id: ctx.user.id,
       phone: ctx.user.phone,
       fullName: ctx.user.fullName,
+      email: ctx.user.email,
       memberships: ctx.user.memberships,
       roles: ctx.user.roles,
       hasPendingRequest:
