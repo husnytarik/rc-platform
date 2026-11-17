@@ -113,6 +113,24 @@ export function makeCatalogRouter(catalog: CatalogService) {
       .input(idInput)
       .query(({ input }) => catalog.adminProduct(input.id)),
 
+    customerPrices: capabilityProcedure('price.manage')
+      .input(
+        z.object({
+          orgId: z.string().uuid(),
+          search: z.string().min(1).max(120).optional(),
+          categoryId: z.string().uuid().optional(),
+        }),
+      )
+      .query(({ input }) => catalog.customerPrices(input)),
+
+    setCustomerPrice: capabilityProcedure('price.manage')
+      .input(z.object({ orgId: z.string().uuid(), variantId: z.string().uuid(), price: z.number().min(0).max(1_000_000).nullable() }))
+      .mutation(({ input }) => catalog.setCustomerPrice(input)),
+
+    setCustomerCategoryDiscount: capabilityProcedure('price.manage')
+      .input(z.object({ orgId: z.string().uuid(), categoryId: z.string().uuid(), pct: z.number().min(0).max(90) }))
+      .mutation(({ input }) => catalog.setCustomerCategoryDiscount(input)),
+
     uploadImage: capabilityProcedure('catalog.manage')
       .input(z.object({ base64: z.string().min(100).max(900_000) }))
       .mutation(async ({ input }) => ({ path: await catalog.saveImage(input.base64) })),

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/providers/auth-context';
 import { colors, radius, spacing, shadow } from '@/theme';
 
 function errText(e: unknown, fallback: string): string {
@@ -43,6 +44,8 @@ interface BranchTarget {
 
 export default function FirmaDetayScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { can } = useAuth();
   const utils = trpc.useUtils();
   const q = trpc.customer.get.useQuery({ id });
   const [info, setInfo] = useState({ name: '', taxId: '', phone: '', email: '', address: '' });
@@ -122,6 +125,19 @@ export default function FirmaDetayScreen() {
           {c.isActive ? 'Firmayı pasife al' : 'Firmayı aktif et'}
         </Text>
       </TouchableOpacity>
+
+      {can('price.manage') && (
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push({ pathname: '/producer/musteriler/fiyat', params: { orgId: id, name: c.name } })}
+        >
+          <View style={styles.flex}>
+            <Text style={styles.rowTitle}>Firmaya özel fiyatlar</Text>
+            <Text style={styles.rowMeta}>Kategoriye toplu indirim veya ürün bazında fiyat</Text>
+          </View>
+          <Text style={styles.chev}>›</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.headRow}>
         <Text style={styles.section}>Aboneler / kullanıcılar ({c.members.length})</Text>

@@ -209,6 +209,86 @@ export class CatalogService {
     return rows;
   }
 
+  private async customerList(orgId: string, create: boolean) {
+    const found = await this.prisma.priceList.findFirst({ where: { scope: 'customer', orgId } });
+    if (found) {
+      if (!found.isActive && create) await this.prisma.priceList.update({ where: { id: found.id }, data: { isActive: true } });
+      return found;
+    }
+    if (!create) return null;
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } });
+    if (!org) throw new TRPCError({ code: 'NOT_FOUND', message: 'Firma bulunamadı.' });
+    return this.prisma.priceList.create({ data: { name: `${org.name} özel fiyat`, scope: 'customer', orgId } });
+  }
+
+  /** Yönetici: bir firmaya özel fiyatlar (varyant bazında liste fiyatı + firmaya özel fiyat). */
+  async customerPrices(input: { orgId: string; search?: string; categoryId?: string }) {
+    const list = await this.customerList(input.orgId, false);
+    const overrides = list
+      ? await this.prisma.priceListItem.findMany({ where: { priceListId: list.id, minQty: 1 }, select: { variantId: true, price: true } })
+      : [];
+    const ov = new Map(overrides.map((o) => [o.variantId, o.price.toFixed(2)]));
+    const variants = await this.prisma.productVariant.findMany({
+      where: {
+        isActive: true,
+        product: {
+          isActive: true,
+          ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+          ...(input.search ? { name: { contains: input.search, mode: 'insensitive' } } : {}),
+        },
+      },
+      orderBy: [{ product: { name: 'asc' } }, { name: 'asc' }],
+      take: 200,
+      select: { id: true, name: true, basePrice: true, product: { select: { name: true } } },
+    });
+    return variants.map((v) => ({
+      variantId: v.id,
+      productName: v.product.name,
+      variantName: v.name,
+      basePrice: v.basePrice.toFixed(2),
+      customPrice: ov.get(v.id) ?? null,
+    }));
+  }
+
+  /** Tek varyant için firmaya özel fiyat; price=null özel fiyatı kaldırır. */
+  async setCustomerPrice(input: { orgId: string; variantId: string; price: number | null }): Promise<{ ok: true }> {
+    if (input.price === null) {
+      const list = await this.customerList(input.orgId, false);
+      if (list) await this.prisma.priceListItem.deleteMany({ where: { priceListId: list.id, variantId: input.variantId, minQty: 1 } });
+      return { ok: true };
+    }
+    const list = await this.customerList(input.orgId, true);
+    await this.prisma.priceListItem.upsert({
+      where: { priceListId_variantId_minQty: { priceListId: list!.id, variantId: input.variantId, minQty: 1 } },
+      create: { priceListId: list!.id, variantId: input.variantId, minQty: 1, price: input.price },
+      update: { price: input.price },
+    });
+    return { ok: true };
+  }
+
+  /** Kategorideki tüm ürün varyantlarına liste fiyatından % indirim uygular (pct=0 → özel fiyatları kaldırır). */
+  async setCustomerCategoryDiscount(input: { orgId: string; categoryId: string; pct: number }): Promise<{ count: number }> {
+    const variants = await this.prisma.productVariant.findMany({
+      where: { isActive: true, product: { categoryId: input.categoryId } },
+      select: { id: true, basePrice: true },
+    });
+    if (input.pct === 0) {
+      const list = await this.customerList(input.orgId, false);
+      if (list) await this.prisma.priceListItem.deleteMany({ where: { priceListId: list.id, variantId: { in: variants.map((v) => v.id) }, minQty: 1 } });
+      return { count: variants.length };
+    }
+    const list = await this.customerList(input.orgId, true);
+    for (const v of variants) {
+      const price = Math.round(Number(v.basePrice) * (100 - input.pct)) / 100;
+      await this.prisma.priceListItem.upsert({
+        where: { priceListId_variantId_minQty: { priceListId: list!.id, variantId: v.id, minQty: 1 } },
+        create: { priceListId: list!.id, variantId: v.id, minQty: 1, price },
+        update: { price },
+      });
+    }
+    return { count: variants.length };
+  }
+
   /** Yüklenen (istemcide küçültülmüş) görseli DB'ye yazar; herkese açık `/media/:id` yolunu döndürür. */
   async saveImage(base64: string): Promise<string> {
     const data = Buffer.from(base64, 'base64');
