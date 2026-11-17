@@ -137,9 +137,11 @@ export function HomeScreen() {
               onPress={() => go(`/customer/siparislerim/${o.id}`)}
             >
               <View style={styles.flex}>
-                <Text style={styles.orderTitle}>{o.keyCode}</Text>
+                <Text style={styles.orderTitle}>
+                  {new Date(o.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </Text>
                 <Text style={styles.orderMeta}>
-                  {o.branchName} · {o.lineCount} kalem
+                  {o.keyCode} · {o.branchName} · {o.lineCount} kalem
                 </Text>
               </View>
               <View style={styles.orderRight}>

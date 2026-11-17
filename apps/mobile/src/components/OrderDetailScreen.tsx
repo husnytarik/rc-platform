@@ -133,7 +133,10 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
               <Text style={styles.codeSmall}>{o.keyCode}</Text>
             </View>
           ) : (
-            <Text style={styles.code}>{o.keyCode}</Text>
+            <View style={styles.flex}>
+              <Text style={styles.code}>{formatDateTime(o.createdAt)}</Text>
+              <Text style={styles.codeSmall}>{o.keyCode}</Text>
+            </View>
           )}
           <View style={[styles.badge, { borderColor: meta.color }]}>
             <View style={[styles.dot, { backgroundColor: meta.color }]} />
@@ -143,7 +146,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
           </View>
         </View>
         <Text style={styles.muted}>{isProducerView ? o.branchName : `${o.customerName} · ${o.branchName}`}</Text>
-        <Text style={styles.muted}>{formatDateTime(o.createdAt)}</Text>
+        {isProducerView && <Text style={styles.muted}>{formatDateTime(o.createdAt)}</Text>}
       </View>
 
       {o.nextSteps.length > 0 && (

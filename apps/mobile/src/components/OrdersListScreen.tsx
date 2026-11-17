@@ -6,6 +6,10 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { colors, radius, spacing, shadow } from '@/theme';
 
+function formatDateTime(d: string | Date): string {
+  return new Date(d).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function formatDate(d: string | Date): string {
   return new Date(d).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
@@ -61,7 +65,10 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
                   <Text style={styles.cardCode}>{item.keyCode}</Text>
                 </View>
               ) : (
-                <Text style={styles.cardTitle}>{item.keyCode}</Text>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle}>{formatDateTime(item.createdAt)}</Text>
+                  <Text style={styles.cardCode}>{item.keyCode}</Text>
+                </View>
               )}
               <View style={[styles.badge, { borderColor: meta.color }]}>
                 <View style={[styles.badgeDot, { backgroundColor: meta.color }]} />
@@ -77,7 +84,7 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
               <Text style={styles.cardTotal}>
                 {item.total} {item.currency}
               </Text>
-              <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
+              {producerView && <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>}
             </View>
           </TouchableOpacity>
         );
