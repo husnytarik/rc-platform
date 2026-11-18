@@ -17,6 +17,8 @@ const schema = z.object({
   JWT_ACCESS_SECRET: z.string().min(16),
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_TTL: z.string().default('15m'),
+  // Oturum açıkken bu kadar günde bir SMS ile yeniden doğrulama istenir.
+  SMS_REVERIFY_DAYS: z.coerce.number().int().positive().default(30),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(75),
 
 

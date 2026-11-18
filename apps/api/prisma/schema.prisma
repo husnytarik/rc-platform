@@ -241,6 +241,7 @@ model User {
   fullName       String?
   email          String?
   isActive       Boolean      @default(true) // false = dondurulmuş veya silinmiş (veri korunur)
+  smsVerifiedAt  DateTime?    // son SMS doğrulaması; eskiyse oturum yenilenirken tekrar SMS istenir
   deletedAt      DateTime?    // kullanıcı kendi hesabını sildiyse (soft delete)
   lastLoginAt    DateTime?
   createdAt      DateTime     @default(now())

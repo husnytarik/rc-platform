@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -248,7 +249,7 @@ export class AuthService {
 
     if (this.adminPhones().includes(phone)) await this.ensureProducerAdmin(user.id);
 
-    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), smsVerifiedAt: new Date() } });
     const activeCount = await this.prisma.membership.count({
       where: { userId: user.id, status: 'active' },
     });
@@ -480,6 +481,17 @@ export class AuthService {
   }
 
   async refresh(rawRefresh: string, ctx: Ctx) {
+    // SMS yalnızca kayıt/giriş anında; oturum açıkken SMS_REVERIFY_DAYS günde bir tekrar istenir.
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: createHash('sha256').update(rawRefresh).digest('hex') },
+      select: { user: { select: { smsVerifiedAt: true } } },
+    });
+    const at = row?.user.smsVerifiedAt;
+    const days = Number(process.env['SMS_REVERIFY_DAYS'] ?? 30);
+    if (at && Date.now() - at.getTime() > days * 86_400_000) {
+      await this.tokens.revoke(rawRefresh);
+      throw new UnauthorizedException('Güvenlik için SMS ile yeniden doğrulama gerekiyor, tekrar giriş yapın.');
+    }
     const pair = await this.tokens.rotate(rawRefresh, ctx);
     return {
       accessToken: pair.accessToken,
@@ -498,8 +510,12 @@ export class AuthService {
     if (roles.some((r) => (PRODUCER_ROLES as readonly string[]).includes(r))) {
       throw new ForbiddenException('Personel hesabı yalnızca yönetici tarafından kapatılabilir.');
     }
+    const who = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, phone: true } });
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: userId }, data: { isActive: false, deletedAt: new Date() } }),
+      this.prisma.outboxEvent.create({
+        data: { topic: 'account.deleted', payload: { userId, name: who?.fullName ?? '', phone: who?.phone ?? '' } },
+      }),
       this.prisma.refreshToken.deleteMany({ where: { userId } }),
       this.prisma.deviceToken.deleteMany({ where: { userId } }),
       this.prisma.activityLog.create({

@@ -48,12 +48,14 @@ export function PushBootstrap(): null {
   const register = trpc.notification.registerDevice.useMutation();
   const registeredFor = useRef<string | null>(null);
 
-  const active = status === 'authenticated' && identity != null && !identity.pending;
+  const signedIn = status === 'authenticated' && identity != null;
+  // Onay bekleyen üye de jeton kaydeder: "başvurun onaylandı" bildirimini alabilsin.
+  const active = signedIn && !identity.pending;
   const userId = identity?.id ?? null;
   const producer = identity?.roles.some(isProducerRole) ?? false;
 
   useEffect(() => {
-    if (!active || !userId || registeredFor.current === userId) return;
+    if (!signedIn || !userId || registeredFor.current === userId) return;
     registeredFor.current = userId;
     void (async () => {
       try {
@@ -69,14 +71,16 @@ export function PushBootstrap(): null {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, userId]);
+  }, [signedIn, userId]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!signedIn) return;
     const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
       const data = resp.notification.request.content.data as Record<string, string | undefined>;
       const base = producer ? '/producer' : '/customer';
-      if (data['orderId']) {
+      if (producer && data['type'] === 'membership.requested') {
+        router.push('/producer/basvurular' as Href);
+      } else if (data['orderId']) {
         router.push(`${base}/${producer ? 'siparisler' : 'siparislerim'}/${data['orderId']}` as Href);
       } else if (data['ticketId']) {
         router.push(`${base}/destek/${data['ticketId']}` as Href);
@@ -85,7 +89,7 @@ export function PushBootstrap(): null {
       }
     });
     return () => sub.remove();
-  }, [active, producer, router]);
+  }, [signedIn, producer, router]);
 
   return null;
 }

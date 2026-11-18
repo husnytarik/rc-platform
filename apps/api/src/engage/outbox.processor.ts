@@ -192,12 +192,23 @@ export class OutboxProcessor implements OnModuleInit, OnModuleDestroy {
         };
 
       case 'membership.requested':
+        // Başvuruyu yalnızca üretici yöneticisi onaylayabilir.
         return {
-          userIds: await this.staff(['producer_admin', 'sales_staff']),
+          userIds: await this.staff(['producer_admin']),
           notice: {
             type: 'membership.requested',
             title: 'Yeni üyelik başvurusu',
-            body: `${str('orgName')} başvuru yaptı.`,
+            body: `${str('orgName')} onayınızı bekliyor.`,
+          },
+        };
+
+      case 'account.deleted':
+        return {
+          userIds: await this.staff(['producer_admin']),
+          notice: {
+            type: 'account.deleted',
+            title: 'Bir müşteri hesabını sildi',
+            body: `${str('name') || str('phone')} hesabını kapattı.`,
           },
         };
 
