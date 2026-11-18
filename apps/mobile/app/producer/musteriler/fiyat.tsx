@@ -67,7 +67,7 @@ export default function FirmaFiyatScreen() {
         const dirty = (edits[v.variantId] ?? v.customPrice ?? '') !== (v.customPrice ?? '');
         return (
           <View style={styles.card}>
-            <View style={styles.flex}>
+            <View style={styles.fill}>
               <Text style={styles.title}>{v.productName}</Text>
               <Text style={styles.meta}>
                 {v.variantName} · liste {v.basePrice} ₺
@@ -103,6 +103,7 @@ export default function FirmaFiyatScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
+  fill: { flex: 1 },
   content: { padding: spacing(5), gap: spacing(2), paddingBottom: spacing(10) },
   head: { gap: spacing(2.5), marginBottom: spacing(2) },
   h1: { fontSize: 18, fontWeight: '800', color: colors.ink },

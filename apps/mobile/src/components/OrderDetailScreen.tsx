@@ -128,12 +128,12 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
       <View style={styles.card}>
         <View style={styles.row}>
           {isProducerView ? (
-            <View style={styles.flex}>
+            <View style={styles.fill}>
               <Text style={styles.code}>{o.customerName}</Text>
               <Text style={styles.codeSmall}>{o.keyCode}</Text>
             </View>
           ) : (
-            <View style={styles.flex}>
+            <View style={styles.fill}>
               <Text style={styles.code}>{formatDateTime(o.createdAt)}</Text>
               <Text style={styles.codeSmall}>{o.keyCode}</Text>
             </View>
@@ -188,7 +188,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
       <View style={styles.card}>
         {o.lines.map((l) => (
           <View key={l.id} style={styles.lineRow}>
-            <View style={styles.flex}>
+            <View style={styles.fill}>
               <Text style={styles.value}>{l.name}</Text>
               <Text style={styles.muted}>
                 {l.qty} {l.uom} × {l.unitPrice}
@@ -335,6 +335,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
+  fill: { flex: 1 },
   content: { padding: spacing(5), gap: spacing(2.5), paddingBottom: spacing(10) },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   muted: { fontSize: 12, color: colors.inkMuted },

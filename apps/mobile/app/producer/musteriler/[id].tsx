@@ -131,7 +131,7 @@ export default function FirmaDetayScreen() {
           style={styles.row}
           onPress={() => router.push({ pathname: '/producer/musteriler/fiyat', params: { orgId: id, name: c.name } })}
         >
-          <View style={styles.flex}>
+          <View style={styles.fill}>
             <Text style={styles.rowTitle}>Firmaya özel fiyatlar</Text>
             <Text style={styles.rowMeta}>Kategoriye toplu indirim veya ürün bazında fiyat</Text>
           </View>
@@ -161,7 +161,7 @@ export default function FirmaDetayScreen() {
             })
           }
         >
-          <View style={styles.flex}>
+          <View style={styles.fill}>
             <Text style={styles.rowTitle}>{m.fullName ?? '—'}</Text>
             <Text style={styles.rowMeta}>
               {m.phone ?? '—'} · {m.roleLabel}
@@ -184,7 +184,7 @@ export default function FirmaDetayScreen() {
           style={styles.row}
           onPress={() => setBranch({ id: b.id, name: b.name, address: b.address ?? '', phone: b.phone ?? '' })}
         >
-          <View style={styles.flex}>
+          <View style={styles.fill}>
             <Text style={styles.rowTitle}>{b.name}</Text>
             {(b.address || b.phone) && <Text style={styles.rowMeta}>{[b.address, b.phone].filter(Boolean).join(' · ')}</Text>}
           </View>
@@ -195,7 +195,7 @@ export default function FirmaDetayScreen() {
       {c.recentOrders.length > 0 && <Text style={styles.section}>Son siparişler</Text>}
       {c.recentOrders.map((o) => (
         <View key={o.id} style={styles.row}>
-          <View style={styles.flex}>
+          <View style={styles.fill}>
             <Text style={styles.rowTitle}>{o.keyCode}</Text>
             <Text style={styles.rowMeta}>
               {o.statusLabel} · {o.total.toFixed(2)} ₺
@@ -420,6 +420,7 @@ function BranchModal({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  fill: { flex: 1 },
   content: { padding: spacing(5), gap: spacing(2), paddingBottom: spacing(10), backgroundColor: colors.bg },
   empty: { textAlign: 'center', marginTop: 40, color: colors.inkMuted },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },

@@ -65,7 +65,7 @@ export function HomeScreen() {
       {cart.totalQty > 0 && (
         <TouchableOpacity style={styles.draft} activeOpacity={0.9} onPress={() => go('/customer/siparislerim')}>
           <View style={styles.draftDot} />
-          <View style={styles.flex}>
+          <View style={styles.fill}>
             <Text style={styles.draftTitle}>Gönderilmemiş siparişin var</Text>
             <Text style={styles.draftSub}>{cart.totalQty} kalem seni bekliyor</Text>
           </View>
@@ -78,7 +78,7 @@ export function HomeScreen() {
       {tip.data && (
         <View style={styles.tipCard}>
           <Icon name="bulb" size={22} color={colors.accent} />
-          <View style={styles.flex}>
+          <View style={styles.fill}>
             <Text style={styles.tipHead}>{tip.data.title ?? 'Günün ipucu'}</Text>
             <Text style={styles.tipBody}>{tip.data.body}</Text>
           </View>
@@ -136,7 +136,7 @@ export function HomeScreen() {
               style={styles.order}
               onPress={() => go(`/customer/siparislerim/${o.id}`)}
             >
-              <View style={styles.flex}>
+              <View style={styles.fill}>
                 <Text style={styles.orderTitle}>
                   {new Date(o.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </Text>
@@ -208,6 +208,7 @@ const styles = StyleSheet.create({
   newName: { fontSize: 13, fontWeight: '700', color: colors.ink },
   newBrand: { fontSize: 11, color: colors.inkMuted },
   flex: { flex: 1, backgroundColor: colors.bg },
+  fill: { flex: 1 },
   content: { padding: spacing(5), gap: spacing(3), paddingBottom: spacing(10) },
   greet: { fontSize: 13, color: colors.inkMuted, fontWeight: '600' },
   hello: { fontSize: 26, fontWeight: '800', color: colors.ink },

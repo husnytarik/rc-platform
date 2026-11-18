@@ -62,7 +62,7 @@ export default function KullanicilarScreen() {
   const refresh = (): void => void utils.membership.people.invalidate();
 
   return (
-    <View style={styles.flex}>
+    <View style={styles.fill}>
       <View style={styles.top}>
         <View style={styles.searchRow}>
           <Icon name="search-outline" size={18} color={colors.inkFaint} />
@@ -84,7 +84,7 @@ export default function KullanicilarScreen() {
               <Text style={[styles.chipText, kind === k && styles.chipTextOn]}>{label}</Text>
             </TouchableOpacity>
           ))}
-          <View style={styles.flex} />
+          <View style={styles.fill} />
           <TouchableOpacity onPress={() => setAdding(true)}>
             <Text style={styles.link}>+ Personel ekle</Text>
           </TouchableOpacity>
@@ -304,6 +304,7 @@ function AddStaffModal({ visible, onClose, onSaved }: { visible: boolean; onClos
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
+  fill: { flex: 1 },
   top: { padding: spacing(5), paddingBottom: spacing(2), gap: spacing(2.5) },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(2), backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing(3), ...shadow.card },
   search: { flex: 1, paddingVertical: spacing(3), fontSize: 14, color: colors.ink },
