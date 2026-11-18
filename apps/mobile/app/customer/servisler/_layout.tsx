@@ -1,10 +1,13 @@
-import { Stack } from 'expo-router';
+import { AppStack } from '@/components/AppStack';
 
-export default function ServislerStackLayout() {
+export default function Layout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="[id]" options={{ headerShown: true, title: 'Servis talebi' }} />
-    </Stack>
+    <AppStack
+      base="/customer"
+      title="Servisler"
+      screens={{
+      '[id]': 'Servis talebi',
+      }}
+    />
   );
 }

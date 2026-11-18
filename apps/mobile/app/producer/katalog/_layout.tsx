@@ -1,11 +1,14 @@
-import { Stack } from 'expo-router';
+import { AppStack } from '@/components/AppStack';
 
-export default function KatalogStackLayout() {
+export default function Layout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="yeni" options={{ headerShown: true, title: 'Yeni Ürün' }} />
-      <Stack.Screen name="[id]" options={{ headerShown: true, title: 'Ürün Düzenle' }} />
-    </Stack>
+    <AppStack
+      base="/producer"
+      title="Katalog"
+      screens={{
+      yeni: 'Yeni Ürün',
+      '[id]': 'Ürün Düzenle',
+      }}
+    />
   );
 }

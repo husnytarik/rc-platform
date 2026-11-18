@@ -1,12 +1,15 @@
-import { Stack } from 'expo-router';
+import { AppStack } from '@/components/AppStack';
 
-export default function MusterilerStackLayout() {
+export default function Layout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="yeni" options={{ headerShown: true, title: 'Yeni Firma' }} />
-      <Stack.Screen name="fiyat" options={{ headerShown: true, title: 'Özel Fiyatlar' }} />
-      <Stack.Screen name="[id]"options={{ headerShown: true, title: 'Firma' }} />
-    </Stack>
+    <AppStack
+      base="/producer"
+      title="Müşteriler"
+      screens={{
+      yeni: 'Yeni Firma',
+      fiyat: 'Özel Fiyatlar',
+      '[id]': 'Firma',
+      }}
+    />
   );
 }

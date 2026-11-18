@@ -1,12 +1,15 @@
-import { Stack } from 'expo-router';
+import { AppStack } from '@/components/AppStack';
 
-export default function TariflerStackLayout() {
+export default function Layout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="yeni" options={{ headerShown: true, title: 'Yeni reçete' }} />
-      <Stack.Screen name="duzenle" options={{ headerShown: true, title: 'Reçeteyi düzenle' }} />
-      <Stack.Screen name="[id]" options={{ headerShown: true, title: 'Reçete' }} />
-    </Stack>
+    <AppStack
+      base="/producer"
+      title="Reçeteler"
+      screens={{
+      yeni: 'Yeni reçete',
+      duzenle: 'Reçeteyi düzenle',
+      '[id]': 'Reçete',
+      }}
+    />
   );
 }

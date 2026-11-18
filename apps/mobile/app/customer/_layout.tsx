@@ -1,11 +1,15 @@
 import { isCustomerRole } from '@rc/shared';
 import { Redirect, Tabs } from 'expo-router';
+import { BackButton } from '@/components/BackButton';
 import { useAuth } from '@/providers/auth-context';
 import { useCart } from '@/providers/cart-context';
 import { colors } from '@/theme';
 import { HeaderActions } from '@/components/HeaderActions';
 import { tabIcon } from '@/components/TabIcon';
 import { StartupLoading } from '@/components/StartupLoading';
+
+const STACK_ROUTES = ['siparislerim', 'tarifler', 'destek', 'servisler'];
+const VISIBLE_TABS = ['index', 'katalog', 'daha-fazla'];
 
 export default function CustomerLayout() {
   const { status, identity } = useAuth();
@@ -17,7 +21,12 @@ export default function CustomerLayout() {
 
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
+        sceneStyle: { backgroundColor: colors.bg },
+        ...(STACK_ROUTES.includes(route.name) ? { headerShown: false } : {}),
+        ...(!VISIBLE_TABS.includes(route.name) && !STACK_ROUTES.includes(route.name)
+          ? { headerLeft: () => <BackButton fallback="/customer/daha-fazla" /> }
+          : {}),
         headerRight: () => <HeaderActions base="/customer" />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.inkFaint,
@@ -26,7 +35,7 @@ export default function CustomerLayout() {
         headerShadowVisible: false,
         tabBarStyle: { backgroundColor: colors.surface, borderTopWidth: 0, elevation: 12, shadowColor: '#2A1B10', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
         headerStyle: { backgroundColor: colors.bg },
-      }}
+      })}
     >
       <Tabs.Screen name="index" options={{ title: 'Ana Sayfa', tabBarIcon: tabIcon('home') }} />
       <Tabs.Screen name="katalog" options={{ title: 'Katalog', tabBarIcon: tabIcon('cafe') }} />
