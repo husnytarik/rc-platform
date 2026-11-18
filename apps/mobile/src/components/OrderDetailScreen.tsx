@@ -284,7 +284,10 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
 
       <Text style={styles.section}>Geçmiş</Text>
       <View style={styles.card}>
-        {o.events.map((e, i) => (
+        {o.events
+          // Fiyat/indirim düzeltmeleri müşteriye gösterilmez (yanlış girip düzeltmeler kafa karıştırır).
+          .filter((e) => isProducerView || (e.type !== 'price_change' && e.type !== 'discount'))
+          .map((e, i) => (
           <View key={`${e.createdAt}-${i}`} style={styles.eventRow}>
             <Text style={styles.value}>
               {e.type === 'line_added'
