@@ -70,7 +70,7 @@ export default function FirmaFiyatScreen() {
             <View style={styles.fill}>
               <Text style={styles.title}>{v.productName}</Text>
               <Text style={styles.meta}>
-                {v.variantName} · liste {v.basePrice} ₺
+                {v.variantName} · liste {v.basePrice} ₺{v.customPrice && Number(v.basePrice) > 0 ? ` · %${Math.round((1 - Number(v.customPrice) / Number(v.basePrice)) * 1000) / 10} iskonto` : ''}
               </Text>
             </View>
             <TextInput

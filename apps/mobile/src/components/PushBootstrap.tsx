@@ -79,7 +79,7 @@ export function PushBootstrap(): null {
       const data = resp.notification.request.content.data as Record<string, string | undefined>;
       const base = producer ? '/producer' : '/customer';
       if (producer && data['type'] === 'membership.requested') {
-        router.push('/producer/basvurular' as Href);
+        router.push('/producer/kullanicilar?tab=basvurular' as Href);
       } else if (data['orderId']) {
         router.push(`${base}/${producer ? 'siparisler' : 'siparislerim'}/${data['orderId']}` as Href);
       } else if (data['ticketId']) {

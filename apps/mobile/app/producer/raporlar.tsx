@@ -6,9 +6,6 @@ import { colors, radius, spacing, shadow } from '@/theme';
 
 const RANGES = [7, 30, 90];
 
-const money = (n: number): string =>
-  `${n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
-
 export default function RaporlarScreen() {
   const [days, setDays] = useState(30);
   const q = trpc.report.summary.useQuery({ days });
@@ -34,11 +31,10 @@ export default function RaporlarScreen() {
       ) : (
         <>
           <View style={styles.row}>
-            <Stat label="Ciro" value={money(d.revenue)} />
             <Stat label="Sipariş" value={String(d.orderCount)} />
+            <Stat label="Açık destek talebi" value={String(d.openTickets)} />
           </View>
           <View style={styles.row}>
-            <Stat label="Açık destek talebi" value={String(d.openTickets)} />
             <Stat label="Stoğu biten varyant" value={String(d.outOfStockVariants)} />
           </View>
 
@@ -62,7 +58,7 @@ export default function RaporlarScreen() {
                   <Text style={styles.value}>{c.name}</Text>
                   <Text style={styles.muted}>{c.orders} sipariş</Text>
                 </View>
-                <Text style={styles.value}>{money(c.total)}</Text>
+                <Text style={styles.value}>{c.orders}</Text>
               </View>
             ))}
           </View>
@@ -74,9 +70,9 @@ export default function RaporlarScreen() {
               <View key={p.name} style={styles.line}>
                 <View style={styles.flexInner}>
                   <Text style={styles.value}>{p.name}</Text>
-                  <Text style={styles.muted}>{p.qty} adet/birim</Text>
+                  <Text style={styles.muted}>toplam miktar</Text>
                 </View>
-                <Text style={styles.value}>{money(p.total)}</Text>
+                <Text style={styles.value}>{p.qty}</Text>
               </View>
             ))}
           </View>
@@ -89,10 +85,10 @@ export default function RaporlarScreen() {
                 <View style={styles.flexInner}>
                   <Text style={styles.value}>{r.name}</Text>
                   <Text style={styles.muted}>
-                    {r.orders} sipariş · verilen iskonto {money(r.discount)}
+                    {r.orders} sipariş · ortalama iskonto %{r.discountPct}
                   </Text>
                 </View>
-                <Text style={styles.value}>{money(r.revenue)}</Text>
+                <Text style={styles.value}>%{r.discountPct}</Text>
               </View>
             ))}
           </View>

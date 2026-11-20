@@ -1,5 +1,7 @@
 import { Link } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { CategoryChips } from '@/components/CategoryChips';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing, shadow } from '@/theme';
 
@@ -30,9 +32,11 @@ function totalBalance(variants: Variant[]): number | null {
 }
 
 export default function StokScreen() {
+  const [search, setSearch] = useState('');
+  const [categorySlug, setCategorySlug] = useState<string | null>(null);
   const { data, isLoading, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     trpc.catalog.list.useInfiniteQuery(
-      { limit: 30 },
+      { limit: 30, search: search.trim() || undefined, categorySlug: categorySlug ?? undefined },
       { getNextPageParam: (last) => last.nextCursor ?? undefined },
     );
   const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -45,6 +49,21 @@ export default function StokScreen() {
       keyExtractor={(p) => p.id}
       refreshing={isFetching && !isFetchingNextPage}
       onRefresh={() => void refetch()}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <View style={styles.headerBox}>
+          <TextInput
+            style={styles.search}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Ad, kod veya marka ara…"
+            placeholderTextColor={colors.inkFaint}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <CategoryChips value={categorySlug} onChange={setCategorySlug} mode="slug" />
+        </View>
+      }
       onEndReachedThreshold={0.4}
       onEndReached={() => {
         if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
@@ -84,6 +103,16 @@ export default function StokScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBox: { gap: spacing(2.5), marginBottom: spacing(1) },
+  search: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(2.5),
+    fontSize: 15,
+    color: colors.ink,
+    ...shadow.card,
+  },
   flex: { flex: 1, backgroundColor: colors.bg },
   listContent: { padding: spacing(5), gap: spacing(2.5) },
   empty: { textAlign: 'center', color: colors.inkMuted, marginTop: spacing(6) },

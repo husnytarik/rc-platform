@@ -91,6 +91,10 @@ export function makeCatalogRouter(catalog: CatalogService) {
 
     categories: capabilityProcedure('catalog.view').query(() => catalog.categories()),
 
+    createCategory: capabilityProcedure('catalog.manage')
+      .input(z.object({ name: z.string().trim().min(2).max(60) }))
+      .mutation(({ input }) => catalog.createCategory(input.name)),
+
     list: capabilityProcedure('catalog.view')
       .input(listInput)
       .query(async ({ input, ctx }) => {

@@ -75,6 +75,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
 
   const o = q.data;
   const isProducerView = can('order.view.all');
+  const showPrice = can('price.view');
   const canPrice = can('price.manage') && !isTerminal(o.status as OrderStatus);
   const canDiscount = (can('price.manage') || can('discount.rep')) && !isTerminal(o.status as OrderStatus);
   const status = o.status as OrderStatus;
@@ -146,6 +147,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
           </View>
         </View>
         <Text style={styles.muted}>{isProducerView ? o.branchName : `${o.customerName} · ${o.branchName}`}</Text>
+        {o.placedByName ? <Text style={styles.muted}>Siparişi veren: {o.placedByName}</Text> : null}
         {isProducerView && <Text style={styles.muted}>{formatDateTime(o.createdAt)}</Text>}
       </View>
 
@@ -191,16 +193,16 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             <View style={styles.fill}>
               <Text style={styles.value}>{l.name}</Text>
               <Text style={styles.muted}>
-                {l.qty} {l.uom} × {l.unitPrice}
+                {l.qty} {l.uom}{showPrice ? ` × ${l.unitPrice}` : ''}
                 {l.source !== 'customer' ? ' · sonradan eklendi' : ''}
               </Text>
             </View>
             <View style={styles.lineRight}>
-              <Text style={styles.value}>{l.lineTotal}</Text>
+              {showPrice && <Text style={styles.value}>{l.lineTotal}</Text>}
               {canPrice && (
                 <TouchableOpacity
                   onPress={() =>
-                    setPriceTarget({ kind: 'line', lineId: l.id, name: l.name, unitPrice: l.unitPrice })
+                    setPriceTarget({ kind: 'line', lineId: l.id, name: l.name, unitPrice: l.unitPrice ?? '0' })
                   }
                 >
                   <Text style={styles.linkSmall}>Fiyatı düzenle</Text>
@@ -214,7 +216,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             <Text style={styles.link}>+ Kalem ekle</Text>
           </TouchableOpacity>
         )}
-        {Number(o.discountAmount) > 0 && (
+        {showPrice && Number(o.discountAmount) > 0 && (
           <>
             <View style={[styles.lineRow, styles.totalRow]}>
               <Text style={styles.muted}>Ara toplam</Text>
@@ -224,7 +226,7 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
             </View>
             <View style={styles.lineRow}>
               <Text style={styles.discountText}>
-                {o.discountType === 'percent' ? `İskonto (%${Number(o.discountValue)})` : 'İndirim'}
+                {`İskonto (%${o.discountPct ?? Number(o.discountValue)})`}
               </Text>
               <Text style={styles.discountText}>
                 −{o.discountAmount} {o.currency}
@@ -234,17 +236,19 @@ export function OrderDetailScreen({ orderRef }: { orderRef: string }) {
         )}
         {canDiscount && (
           <TouchableOpacity
-            onPress={() => setPriceTarget({ kind: 'discount', type: o.discountType, value: o.discountValue })}
+            onPress={() => setPriceTarget({ kind: 'discount', type: o.discountType, value: o.discountValue ?? '0' })}
           >
             <Text style={styles.link}>{Number(o.discountAmount) > 0 ? 'İndirimi düzenle' : '+ İskonto / indirim ekle'}</Text>
           </TouchableOpacity>
         )}
-        <View style={[styles.lineRow, Number(o.discountAmount) > 0 ? null : styles.totalRow]}>
-          <Text style={styles.value}>Toplam</Text>
-          <Text style={styles.total}>
-            {o.total} {o.currency}
-          </Text>
-        </View>
+        {showPrice && (
+          <View style={[styles.lineRow, Number(o.discountAmount) > 0 ? null : styles.totalRow]}>
+            <Text style={styles.value}>Toplam</Text>
+            <Text style={styles.total}>
+              {o.total} {o.currency}
+            </Text>
+          </View>
+        )}
       </View>
 
       <Text style={styles.section}>Süreç</Text>

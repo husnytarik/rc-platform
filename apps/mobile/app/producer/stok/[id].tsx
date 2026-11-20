@@ -67,6 +67,7 @@ function formatDateTime(d: string | Date): string {
 }
 
 function OverrideCard({ productId }: { productId: string }) {
+  const [open, setOpen] = useState(false);
   const utils = trpc.useUtils();
   const { data: override, isLoading } = trpc.stock.override.useQuery({ productId });
   const [state, setState] = useState<DisplayState>('in_stock');
@@ -92,9 +93,23 @@ function OverrideCard({ productId }: { productId: string }) {
 
   if (isLoading) return <ActivityIndicator color={colors.accent} style={{ marginVertical: 12 }} />;
 
+  if (!open) {
+    return (
+      <TouchableOpacity style={styles.card} onPress={() => setOpen(true)}>
+        <Text style={styles.sectionLabel}>Gelişmiş: katalogda görünen durumu elle ayarla {override ? '· AÇIK' : ''}</Text>
+        <Text style={styles.cardMeta}>
+          {override
+            ? `Şu an elle "${DISPLAY_STATE_META[override.state as DisplayState].label}" gösteriliyor.`
+            : 'Genelde gerekmez: durum gerçek stoktan otomatik hesaplanır.'}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionLabel}>Gösterim override</Text>
+      <Text style={styles.sectionLabel}>Katalogda görünen durumu elle ayarla</Text>
+      <Text style={styles.cardMeta}>Gerçek stoğu değiştirmez; müşterinin gördüğü etiketi sabitler (ör. raf boşken “Yolda”).</Text>
 
       {override ? (
         <View style={styles.overrideRow}>
@@ -112,7 +127,7 @@ function OverrideCard({ productId }: { productId: string }) {
           </TouchableOpacity>
         </View>
       ) : (
-        <Text style={styles.cardMeta}>Şu an override yok — gerçek bakiyeden hesaplanıyor.</Text>
+        <Text style={styles.cardMeta}>Şu an kapalı — gerçek stoktan otomatik hesaplanıyor.</Text>
       )}
 
       <View style={styles.chipRow}>
@@ -132,7 +147,7 @@ function OverrideCard({ productId }: { productId: string }) {
         style={styles.input}
         value={note}
         onChangeText={setNote}
-        placeholder="Not (opsiyonel)"
+        placeholder="Müşteriye görünmez not (isteğe bağlı)"
         placeholderTextColor={colors.inkFaint}
       />
       <TouchableOpacity
@@ -152,7 +167,8 @@ function OverrideCard({ productId }: { productId: string }) {
 }
 
 function LedgerPanel({ variantId, productId, balance }: { variantId: string; productId: string; balance: number | null }) {
-  const [count, setCount] = useState(false);
+  const [count, setCount] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
   const utils = trpc.useUtils();
   const [delta, setDelta] = useState('');
   const [reason, setReason] = useState<ManualReason>('purchase');
@@ -161,8 +177,8 @@ function LedgerPanel({ variantId, productId, balance }: { variantId: string; pro
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     trpc.stock.ledger.useInfiniteQuery(
-      { variantId, limit: 20 },
-      { getNextPageParam: (last) => last.nextCursor ?? undefined },
+      { variantId, limit: 10 },
+      { enabled: showHistory, getNextPageParam: (last) => last.nextCursor ?? undefined },
     );
   const rows = data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -185,7 +201,7 @@ function LedgerPanel({ variantId, productId, balance }: { variantId: string; pro
     <View style={styles.ledger}>
       <Text style={styles.rowTitle}>Mevcut stok: {balance ?? '—'}</Text>
       <View style={styles.chipRow}>
-        {([false, true] as const).map((c) => (
+        {([true, false] as const).map((c) => (
           <TouchableOpacity
             key={String(c)}
             style={[styles.chip, count === c && styles.chipActive]}
@@ -195,12 +211,12 @@ function LedgerPanel({ variantId, productId, balance }: { variantId: string; pro
             }}
           >
             <Text style={[styles.chipText, count === c && styles.chipTextActive]}>
-              {c ? 'Sayım: toplam adet gir' : 'Giriş / çıkış (+/−)'}
+              {c ? 'Stoğu şu kadar yap' : 'Ekle / çıkar (+/−)'}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
-      <View style={styles.chipRow}>
+      <View style={[styles.chipRow, count && { display: 'none' }]}>
         {MANUAL_REASONS.map((r) => (
           <TouchableOpacity
             key={r.value}
@@ -216,7 +232,7 @@ function LedgerPanel({ variantId, productId, balance }: { variantId: string; pro
           style={[styles.input, styles.deltaInput]}
           value={delta}
           onChangeText={setDelta}
-          placeholder={count ? 'Toplam adet' : '+10 / -5'}
+          placeholder={count ? 'Şu an kaç adet var?' : '+10 / -5'}
           placeholderTextColor={colors.inkFaint}
           keyboardType={count ? 'decimal-pad' : 'numbers-and-punctuation'}
         />
@@ -236,12 +252,16 @@ function LedgerPanel({ variantId, productId, balance }: { variantId: string; pro
         {adjust.isPending ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.primaryButtonText}>{count ? `Stoğu ${Number.isFinite(typed) && delta.trim() ? typed : '…'} yap` : 'Hareket ekle'}</Text>
+          <Text style={styles.primaryButtonText}>{count ? `Stoğu ${Number.isFinite(typed) && delta.trim() ? typed : '…'} yap` : 'Kaydet'}</Text>
         )}
       </TouchableOpacity>
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      {isLoading ? (
+      <TouchableOpacity onPress={() => setShowHistory((v) => !v)}>
+        <Text style={styles.ghostButtonText}>{showHistory ? 'Geçmişi gizle' : 'Geçmiş hareketleri göster'}</Text>
+      </TouchableOpacity>
+
+      {!showHistory ? null : isLoading ? (
         <ActivityIndicator color={colors.accent} style={{ marginTop: spacing(2) }} />
       ) : rows.length === 0 ? (
         <Text style={styles.cardMeta}>Hareket yok.</Text>
@@ -259,13 +279,13 @@ function LedgerPanel({ variantId, productId, balance }: { variantId: string; pro
           ))}
         </View>
       )}
-      {hasNextPage && (
+      {showHistory && hasNextPage && (
         <TouchableOpacity
           style={styles.ghostButton}
           disabled={isFetchingNextPage}
           onPress={() => void fetchNextPage()}
         >
-          <Text style={styles.ghostButtonText}>{isFetchingNextPage ? 'Yükleniyor…' : 'Daha fazla'}</Text>
+          <Text style={styles.ghostButtonText}>{isFetchingNextPage ? 'Yükleniyor…' : 'Daha eski 10 kayıt'}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -296,8 +316,6 @@ export default function StokDetailScreen() {
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{p.name}</Text>
 
-      <OverrideCard productId={p.id} />
-
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Varyantlar ({p.variants.length})</Text>
         {p.variants.length === 0 ? (
@@ -315,7 +333,7 @@ export default function StokDetailScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.rowTitle}>{v.name}</Text>
                     <Text style={styles.cardMeta}>
-                      {v.code} · {v.orderUomLabel} · bakiye {v.stock.available ?? '—'}
+                      {v.code} · {v.orderUomLabel} · stok {v.stock.available ?? '—'}
                     </Text>
                   </View>
                   <View style={[styles.badge, { borderColor: badge.color }]}>
@@ -329,6 +347,8 @@ export default function StokDetailScreen() {
           })
         )}
       </View>
+
+      <OverrideCard productId={p.id} />
     </ScrollView>
   );
 }

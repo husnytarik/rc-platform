@@ -16,7 +16,7 @@ export class ReportService {
       where: { createdAt: { gte: since }, status: { notIn: [...NON_REVENUE] } },
       _sum: { total: true, subtotal: true, discountAmount: true },
       _count: { _all: true },
-      orderBy: { _sum: { total: 'desc' } },
+      orderBy: { _count: { id: 'desc' } },
     });
     const ids = rows.map((r) => r.salesRepId).filter((x): x is string => !!x);
     const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } });
@@ -27,8 +27,7 @@ export class ReportService {
         id: r.salesRepId,
         name: r.salesRepId ? (name.get(r.salesRepId) ?? '—') : 'Muhatap seçilmemiş',
         orders: r._count._all,
-        revenue: Number(r._sum.total ?? 0),
-        discount: Number(r._sum.discountAmount ?? 0),
+        discountPct: Number(r._sum.subtotal ?? 0) > 0 ? Math.round((Number(r._sum.discountAmount ?? 0) / Number(r._sum.subtotal)) * 1000) / 10 : 0,
       })),
     };
   }
@@ -38,26 +37,24 @@ export class ReportService {
     const since = new Date(Date.now() - days * 86_400_000);
     const inRange = { createdAt: { gte: since } };
 
-    const [byStatus, revenue, topCustomers, topLines, openTickets, outOfStock] = await Promise.all([
+    const [byStatus, orderAgg, topCustomers, topLines, openTickets, outOfStock] = await Promise.all([
       this.prisma.order.groupBy({ by: ['status'], where: inRange, _count: { _all: true } }),
       this.prisma.order.aggregate({
         where: { ...inRange, status: { notIn: [...NON_REVENUE] } },
-        _sum: { total: true },
         _count: { _all: true },
       }),
       this.prisma.order.groupBy({
         by: ['customerOrgId'],
         where: { ...inRange, status: { notIn: [...NON_REVENUE] } },
-        _sum: { total: true },
         _count: { _all: true },
-        orderBy: { _sum: { total: 'desc' } },
+        orderBy: { _count: { customerOrgId: 'desc' } },
         take: 5,
       }),
       this.prisma.orderLine.groupBy({
         by: ['nameSnapshot'],
         where: { order: { ...inRange, status: { notIn: [...NON_REVENUE] } } },
-        _sum: { lineTotal: true, qty: true },
-        orderBy: { _sum: { lineTotal: 'desc' } },
+        _sum: { qty: true },
+        orderBy: { _sum: { qty: 'desc' } },
         take: 5,
       }),
       this.prisma.ticket.count({ where: { status: { in: ['open', 'pending_staff'] } } }),
@@ -74,18 +71,15 @@ export class ReportService {
 
     return {
       days,
-      orderCount: revenue._count._all,
-      revenue: Number(revenue._sum.total ?? 0),
+      orderCount: orderAgg._count._all,
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count._all })),
       topCustomers: topCustomers.map((c) => ({
         name: orgName.get(c.customerOrgId) ?? '—',
         orders: c._count._all,
-        total: Number(c._sum.total ?? 0),
       })),
       topProducts: topLines.map((l) => ({
         name: l.nameSnapshot,
         qty: Number(l._sum.qty ?? 0),
-        total: Number(l._sum.lineTotal ?? 0),
       })),
       openTickets,
       outOfStockVariants: outOfStock,

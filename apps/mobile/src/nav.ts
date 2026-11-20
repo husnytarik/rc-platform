@@ -17,12 +17,11 @@ export interface ProducerNavItem {
 
 export const PRODUCER_NAV: ProducerNavItem[] = [
   { key: 'siparisler', label: 'Siparişler', hint: 'Sipariş akışı ve durum geçişleri', href: '/producer/siparisler', cap: 'order.view.all', primary: true, icon: 'cube' },
-  { key: 'basvurular', label: 'Başvurular', hint: 'Yeni müşteri başvuruları', href: '/producer/basvurular', cap: 'membership.review', primary: true, icon: 'document-text' },
   { key: 'katalog', label: 'Katalog', hint: 'Ürün ve varyant yönetimi', href: '/producer/katalog', cap: 'catalog.view', primary: true, icon: 'cafe' },
   { key: 'destek', label: 'Destek', hint: 'Müşteri destek talepleri', href: '/producer/destek', cap: 'ticket.handle', primary: true, icon: 'chatbubbles' },
+  { key: 'kullanicilar', label: 'Kullanıcılar', hint: 'Müşteriler, personel, başvurular, roller', href: '/producer/kullanicilar', cap: 'staff.manage', primary: true, icon: 'people' },
   { key: 'stok', label: 'Stok', hint: 'Stok ve rezervasyonlar', href: '/producer/stok', cap: 'catalog.view', primary: false, icon: 'layers' },
   { key: 'musteriler', label: 'Müşteriler', hint: 'Firmalar, şubeler, kullanıcılar', href: '/producer/musteriler', cap: 'customer.manage', primary: false, icon: 'business' },
-  { key: 'kullanicilar', label: 'Kullanıcılar', hint: 'Tüm personel ve müşteriler, roller, üyelik iptali', href: '/producer/kullanicilar', cap: 'staff.manage', primary: false, icon: 'people' },
   { key: 'servisler', label: 'Servisler', hint: 'Servis kataloğu ve talepler', href: '/producer/servisler', cap: 'service.manage', primary: false, icon: 'construct' },
   { key: 'duyurular', label: 'Duyurular', hint: 'Müşterilere duyuru ve bildirim gönder', href: '/producer/duyurular', cap: 'announcement.manage', primary: false, icon: 'megaphone' },
   { key: 'tarifler', label: 'Reçeteler', hint: 'Reçete ekle/düzenle (müşteri ana sayfasında yayınlanır)', href: '/producer/tarifler', cap: 'content.manage', primary: false, icon: 'restaurant' },

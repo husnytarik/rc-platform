@@ -78,11 +78,11 @@ export function OrdersListScreen({ basePath }: { basePath: string }) {
               </View>
             </View>
             <Text style={styles.cardMeta}>
-              {producerView ? item.branchName : `${item.customerName} · ${item.branchName}`} · {item.lineCount} kalem{item.salesRepName ? ` · ${item.salesRepName}` : ''}
+              {item.branchName}{item.placedByName ? ` · ${item.placedByName}` : ''} · {item.lineCount} kalem{item.salesRepName ? ` · ${item.salesRepName}` : ''}
             </Text>
             <View style={styles.cardBottom}>
               <Text style={styles.cardTotal}>
-                {item.total} {item.currency}
+                {item.total ? `${item.total} ${item.currency}` : ''}
               </Text>
               {producerView && <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>}
             </View>

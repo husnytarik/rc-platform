@@ -1,6 +1,6 @@
 import type { AppRouter } from '@rc/api/app-router';
 import type { inferRouterOutputs } from '@trpc/server';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { ApplicationsPanel } from '@/components/ApplicationsPanel';
 import { Icon } from '@/components/Icon';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, shadow, spacing } from '@/theme';
@@ -44,17 +46,23 @@ const CUSTOMER_ROLES: { key: Role; label: string }[] = [
   { key: 'customer_user', label: 'Müşteri Kullanıcısı' },
 ];
 
-type Kind = undefined | 'staff' | 'customer';
+type Kind = undefined | 'staff' | 'customer' | 'apps';
 
 export default function KullanicilarScreen() {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState('');
-  const [kind, setKind] = useState<Kind>(undefined);
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [kind, setKind] = useState<Kind>(params.tab === 'basvurular' ? 'apps' : undefined);
+  useEffect(() => {
+    if (params.tab === 'basvurular') setKind('apps');
+  }, [params.tab]);
+  const pendingApps = trpc.membership.requests.useQuery({ status: 'pending', limit: 100 }, { refetchInterval: 60_000 });
+  const appCount = pendingApps.data?.items.length ?? 0;
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   const q = trpc.membership.people.useInfiniteQuery(
-    { search: search.trim() || undefined, kind, limit: 30 },
+    { search: search.trim() || undefined, kind: kind === 'apps' ? undefined : kind, limit: 30 },
     { getNextPageParam: (l) => l.nextCursor ?? undefined },
   );
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
@@ -79,18 +87,27 @@ export default function KullanicilarScreen() {
             [undefined, 'Hepsi'],
             ['staff', 'Personel'],
             ['customer', 'Müşteriler'],
+            ['apps', 'Başvurular'],
           ] as [Kind, string][]).map(([k, label]) => (
             <TouchableOpacity key={label} style={[styles.chip, kind === k && styles.chipOn]} onPress={() => setKind(k)}>
               <Text style={[styles.chipText, kind === k && styles.chipTextOn]}>{label}</Text>
+              {k === 'apps' && appCount > 0 && (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{appCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))}
           <View style={styles.fill} />
-          <TouchableOpacity onPress={() => setAdding(true)}>
-            <Text style={styles.link}>+ Personel ekle</Text>
+          <TouchableOpacity disabled={kind === 'apps'} onPress={() => setAdding(true)}>
+            <Text style={kind === 'apps' ? styles.hidden : styles.link}>+ Personel ekle</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      {kind === 'apps' ? (
+        <ApplicationsPanel />
+      ) : (
       <FlatList
         style={styles.flex}
         contentContainerStyle={styles.list}
@@ -121,6 +138,7 @@ export default function KullanicilarScreen() {
           </TouchableOpacity>
         )}
       />
+      )}
 
       <PersonModal person={open} onClose={() => setOpenId(null)} onChanged={refresh} />
       <AddStaffModal
@@ -303,6 +321,9 @@ function AddStaffModal({ visible, onClose, onSaved }: { visible: boolean; onClos
 }
 
 const styles = StyleSheet.create({
+  hidden: { opacity: 0 },
+  countBadge: { backgroundColor: colors.danger, borderRadius: 9, minWidth: 18, height: 18, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  countBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   flex: { flex: 1, backgroundColor: colors.bg },
   fill: { flex: 1 },
   top: { padding: spacing(5), paddingBottom: spacing(2), gap: spacing(2.5) },
@@ -317,7 +338,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, color: colors.inkMuted },
   suspended: { color: colors.danger },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing(2), alignItems: 'center' },
-  chip: { backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingHorizontal: spacing(3), paddingVertical: spacing(1.5) },
+  chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, paddingHorizontal: spacing(3), paddingVertical: spacing(1.5) },
   chipOn: { backgroundColor: colors.accentSoft },
   chipText: { fontSize: 12, color: colors.inkMuted, fontWeight: '600' },
   chipTextOn: { color: colors.accent },

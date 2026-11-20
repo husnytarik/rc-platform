@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import {
+  canAny,
   canTransition,
   isTerminal,
   nextTransitions,
@@ -113,6 +114,25 @@ export class OrderService {
     if (uniq.length === 0) return new Map();
     const users = await this.prisma.user.findMany({ where: { id: { in: uniq } }, select: { id: true, fullName: true } });
     return new Map(users.map((u) => [u.id, u.fullName ?? 'Satış personeli']));
+  }
+
+  private async placerInfo(pairs: { userId: string | null; orgId: string }[]): Promise<Map<string, string>> {
+    const ids = [...new Set(pairs.map((p) => p.userId).filter((x): x is string => !!x))];
+    if (ids.length === 0) return new Map();
+    const LABEL: Record<string, string> = { customer_admin: 'Firma yöneticisi', branch_manager: 'Şube müdürü', customer_user: 'Çalışan' };
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, fullName: true, memberships: { select: { orgId: true, role: true } } },
+    });
+    const out = new Map<string, string>();
+    for (const p of pairs) {
+      if (!p.userId) continue;
+      const u = users.find((x) => x.id === p.userId);
+      if (!u) continue;
+      const role = u.memberships.find((m) => m.orgId === p.orgId)?.role;
+      out.set(`${p.userId}:${p.orgId}`, `${u.fullName ?? 'Kullanıcı'}${role && LABEL[role] ? ` (${LABEL[role]})` : ''}`);
+    }
+    return out;
   }
 
   // ── Oluşturma ──────────────────────────────────────────────────────────────
@@ -652,9 +672,12 @@ export class OrderService {
       customerName: order.customerOrg.name,
       salesRepName: order.salesRepId ? ((await this.repNames([order.salesRepId])).get(order.salesRepId) ?? null) : null,
       customerPhone: order.customerOrg.phone,
+      placedByName: order.placedBy ? ((await this.placerInfo([{ userId: order.placedBy, orgId: order.customerOrgId }])).get(`${order.placedBy}:${order.customerOrgId}`) ?? null) : null,
       branchAddress: order.branch.address,
       branchPhone: order.branch.phone,
-      events: order.events.map((e) => ({
+      events: order.events
+        .filter((e) => canAny(actor.roles, 'price.view') || (e.type !== 'price_change' && e.type !== 'discount'))
+        .map((e) => ({
         type: e.type,
         fromStatus: e.fromStatus,
         toStatus: e.toStatus,
@@ -694,6 +717,8 @@ export class OrderService {
     });
     const hasMore = rows.length > limit;
     const reps = await this.repNames(rows.map((o) => o.salesRepId));
+    const showPrice = canAny(actor.roles, 'price.view');
+    const placers = await this.placerInfo(rows.map((o) => ({ userId: o.placedBy, orgId: o.customerOrgId })));
     const items = (hasMore ? rows.slice(0, limit) : rows).map((o) => ({
       id: o.id,
       keyCode: o.keyCode,
@@ -701,8 +726,9 @@ export class OrderService {
       branchName: o.branch.name,
       customerName: o.customerOrg.name,
       salesRepName: o.salesRepId ? (reps.get(o.salesRepId) ?? null) : null,
+      placedByName: o.placedBy ? (placers.get(`${o.placedBy}:${o.customerOrgId}`) ?? null) : null,
       lineCount: o._count.lines,
-      total: o.total.toFixed(2),
+      total: showPrice ? o.total.toFixed(2) : null,
       currency: o.currency,
       createdAt: o.createdAt,
     }));
@@ -740,17 +766,22 @@ export class OrderService {
         steps.set(t.to, { to: t.to, labelTr: t.labelTr });
       }
     }
+    const showPrice = canAny(roles, 'price.view');
     return {
       id: order.id,
       keyCode: order.keyCode,
       status: order.status,
       branchName: order.branch.name,
       currency: order.currency,
-      subtotal: order.subtotal.toFixed(2),
-      total: order.total.toFixed(2),
-      discountType: order.discountType,
-      discountValue: order.discountValue.toFixed(2),
-      discountAmount: order.discountAmount.toFixed(2),
+      subtotal: showPrice ? order.subtotal.toFixed(2) : null,
+      total: showPrice ? order.total.toFixed(2) : null,
+      discountType: showPrice ? order.discountType : null,
+      discountValue: showPrice ? order.discountValue.toFixed(2) : null,
+      discountAmount: showPrice ? order.discountAmount.toFixed(2) : null,
+      discountPct:
+        showPrice && Number(order.subtotal) > 0
+          ? Math.round((Number(order.discountAmount) / Number(order.subtotal)) * 1000) / 10
+          : null,
       note: order.note,
       createdAt: order.createdAt,
       lines: order.lines.map((l) => ({
@@ -759,8 +790,8 @@ export class OrderService {
         name: l.nameSnapshot,
         qty: Number(l.qty),
         uom: l.uomSnapshot,
-        unitPrice: l.unitPrice.toFixed(2),
-        lineTotal: l.lineTotal.toFixed(2),
+        unitPrice: showPrice ? l.unitPrice.toFixed(2) : null,
+        lineTotal: showPrice ? l.lineTotal.toFixed(2) : null,
         source: l.source,
       })),
       nextSteps: [...steps.values()],

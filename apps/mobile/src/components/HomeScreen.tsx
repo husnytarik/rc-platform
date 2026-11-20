@@ -146,7 +146,7 @@ export function HomeScreen() {
               </View>
               <View style={styles.orderRight}>
                 <Text style={styles.orderTotal}>
-                  {o.total} {o.currency}
+                  {o.total ? `${o.total} ${o.currency}` : ''}
                 </Text>
                 <Text style={[styles.orderStatus, { color: meta.color }]}>
                   {ORDER_STATUS_LABELS_TR[o.status as OrderStatus]}

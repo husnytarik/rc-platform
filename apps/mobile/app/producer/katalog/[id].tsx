@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { ImageField } from '@/components/ImageField';
+import { NewCategoryChip } from '@/components/NewCategoryChip';
 import { trpc } from '@/lib/trpc';
 import { colors, radius, spacing, shadow } from '@/theme';
 
@@ -75,8 +76,8 @@ function VariantEditor({ productId, variant }: { productId: string; variant: Var
       </View>
       <View style={styles.rowFields}>
         <View style={[styles.field, styles.flex1]}>
-          <Text style={styles.label}>Fiyat</Text>
-          <TextInput style={styles.input} value={form.basePrice} onChangeText={(v) => setForm((f) => ({ ...f, basePrice: v }))} keyboardType="decimal-pad" />
+          <Text style={styles.label}>Fiyat (opsiyonel)</Text>
+          <TextInput style={styles.input} value={form.basePrice} onChangeText={(v) => setForm((f) => ({ ...f, basePrice: v }))} keyboardType="decimal-pad" placeholder="boş = fiyatsız" placeholderTextColor={colors.inkFaint} />
         </View>
         <View style={[styles.field, styles.flex1]}>
           <Text style={styles.label}>Min. sipariş</Text>
@@ -153,7 +154,7 @@ const EMPTY_NEW_VARIANT: VariantForm = {
   isActive: true,
 };
 
-function NewVariantForm({ productId }: { productId: string }) {
+function NewVariantForm({ productId, suggestCode }: { productId: string; suggestCode: string }) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<VariantForm>(EMPTY_NEW_VARIANT);
@@ -171,13 +172,21 @@ function NewVariantForm({ productId }: { productId: string }) {
 
   if (!open) {
     return (
-      <TouchableOpacity style={styles.newButton} onPress={() => setOpen(true)}>
+      <TouchableOpacity
+        style={styles.newButton}
+        onPress={() => {
+          setForm({ ...EMPTY_NEW_VARIANT, code: suggestCode });
+          setError(null);
+          setOpen(true);
+        }}
+      >
         <Text style={styles.newButtonText}>+ Yeni varyant</Text>
       </TouchableOpacity>
     );
   }
 
-  const canSubmit = form.code.trim() && form.name.trim() && toNumber(form.basePrice) != null;
+  const missing = [!form.code.trim() && 'kod', !form.name.trim() && 'ad'].filter(Boolean);
+  const canSubmit = missing.length === 0;
 
   return (
     <View style={styles.variantEditor}>
@@ -195,8 +204,8 @@ function NewVariantForm({ productId }: { productId: string }) {
       </View>
       <View style={styles.rowFields}>
         <View style={[styles.field, styles.flex1]}>
-          <Text style={styles.label}>Fiyat</Text>
-          <TextInput style={styles.input} value={form.basePrice} onChangeText={(v) => setForm((f) => ({ ...f, basePrice: v }))} keyboardType="decimal-pad" />
+          <Text style={styles.label}>Fiyat (opsiyonel)</Text>
+          <TextInput style={styles.input} value={form.basePrice} onChangeText={(v) => setForm((f) => ({ ...f, basePrice: v }))} keyboardType="decimal-pad" placeholder="boş = fiyatsız" placeholderTextColor={colors.inkFaint} />
         </View>
         <View style={[styles.field, styles.flex1]}>
           <Text style={styles.label}>Min. sipariş</Text>
@@ -208,6 +217,7 @@ function NewVariantForm({ productId }: { productId: string }) {
         </View>
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
+      {!canSubmit && <Text style={styles.cardMeta}>Eklemek için gerekli: {missing.join(', ')}</Text>}
       <View style={styles.rowFields}>
         <TouchableOpacity style={styles.ghostButton} onPress={() => setOpen(false)}>
           <Text style={styles.ghostButtonText}>Vazgeç</Text>
@@ -318,7 +328,7 @@ export default function UrunDuzenleScreen() {
           <Text style={styles.label}>Görsel</Text>
           <ImageField value={imageUrl} onChange={setImageUrl} />
         </View>
-        {categories.data && categories.data.length > 0 && (
+        {categories.data && (
           <View style={styles.field}>
             <Text style={styles.label}>Kategori</Text>
             <View style={styles.chipRow}>
@@ -327,6 +337,7 @@ export default function UrunDuzenleScreen() {
                   <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>{c.name}</Text>
                 </TouchableOpacity>
               ))}
+              <NewCategoryChip onCreated={setCategoryId} />
             </View>
           </View>
         )}
@@ -406,7 +417,7 @@ export default function UrunDuzenleScreen() {
             </View>
           );
         })}
-        <NewVariantForm productId={p.id} />
+        <NewVariantForm productId={p.id} suggestCode={`${p.code}-${p.variants.length + 1}`} />
       </View>
     </ScrollView>
   );

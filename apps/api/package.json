@@ -22,7 +22,8 @@
     "db:seed:demo": "dotenv -e ../../.env -- tsx prisma/seed-demo.ts",
     "db:seed:bulk": "dotenv -e ../../.env -- tsx prisma/seed-bulk.ts",
     "db:seed:content": "dotenv -e ../../.env -- tsx prisma/seed-content.ts",
-    "db:seed:reports": "dotenv -e ../../.env -- tsx prisma/seed-reports.ts"
+    "db:seed:reports": "dotenv -e ../../.env -- tsx prisma/seed-reports.ts",
+    "db:seed:team": "dotenv -e ../../.env -- tsx prisma/seed-team.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

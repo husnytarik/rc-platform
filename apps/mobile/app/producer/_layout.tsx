@@ -2,6 +2,7 @@ import { isProducerRole } from '@rc/shared';
 import { Redirect, Tabs } from 'expo-router';
 import { BackButton } from '@/components/BackButton';
 import { PRODUCER_NAV } from '@/nav';
+import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/providers/auth-context';
 import { colors } from '@/theme';
 import { HeaderActions } from '@/components/HeaderActions';
@@ -13,6 +14,11 @@ const VISIBLE_TABS = ['daha-fazla', ...PRODUCER_NAV.filter((i) => i.primary).map
 
 export default function ProducerLayout() {
   const { status, identity, can } = useAuth();
+  const pending = trpc.membership.requests.useQuery(
+    { status: 'pending', limit: 100 },
+    { enabled: status === 'authenticated' && can('membership.review'), refetchInterval: 60_000 },
+  );
+  const pendingCount = pending.data?.items.length ?? 0;
 
   if (status === 'loading') return <StartupLoading />;
   if (status !== 'authenticated' || !identity || identity.pending) return <Redirect href="/" />;
@@ -46,7 +52,15 @@ export default function ProducerLayout() {
         <Tabs.Screen
           key={item.key}
           name={item.key}
-          options={primary.includes(item) ? { title: item.label, tabBarIcon: tabIcon(item.icon) } : { href: null, title: item.label }}
+          options={
+            primary.includes(item)
+              ? {
+                  title: item.label,
+                  tabBarIcon: tabIcon(item.icon),
+                  tabBarBadge: item.key === 'kullanicilar' && pendingCount > 0 ? pendingCount : undefined,
+                }
+              : { href: null, title: item.label }
+          }
         />
       ))}
       <Tabs.Screen name="daha-fazla" options={{ title: 'Daha fazla', tabBarIcon: tabIcon('menu') }} />

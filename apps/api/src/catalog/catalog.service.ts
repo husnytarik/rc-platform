@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
-import { isProducerRole, UOM_LABELS_TR, type Role, type Uom } from '@rc/shared';
+import { canAny, isProducerRole, trSlug, UOM_LABELS_TR, type Role, type Uom } from '@rc/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceService, type ResolvedPrice } from './price.service';
 import { StockService, type VariantStock } from './stock.service';
@@ -11,6 +11,8 @@ export interface ViewContext {
   producerView: boolean;
   orgId: string | null;
   groupIds: string[];
+  /** Fiyat görme yetkisi (price.view). Yoksa fiyatlar null döner. */
+  showPrice: boolean;
 }
 
 interface CallerMembership {
@@ -55,6 +57,7 @@ function shapeVariant(
   },
   price: ResolvedPrice | undefined,
   stock: VariantStock | undefined,
+  showPrice = true,
 ) {
   return {
     id: v.id,
@@ -72,7 +75,7 @@ function shapeVariant(
             uomLabel: uomLabel(v.contentUom),
           }
         : null,
-    price: price ?? null,
+    price: showPrice ? (price ?? null) : null,
     stock: stock ?? { badge: 'in' as const, available: null },
   };
 }
@@ -89,15 +92,16 @@ export class CatalogService {
   /** ctx.user'dan görünüm bağlamı: üretici mi, hangi org, hangi gruplar. */
   async viewContext(memberships: CallerMembership[], roles: Role[]): Promise<ViewContext> {
     if (roles.some(isProducerRole)) {
-      return { producerView: true, orgId: null, groupIds: [] };
+      return { producerView: true, orgId: null, groupIds: [], showPrice: true };
     }
     const orgId = memberships.find((m) => !isProducerRole(m.role))?.orgId ?? null;
-    if (!orgId) return { producerView: false, orgId: null, groupIds: [] };
+    const showPrice = canAny(roles, 'price.view');
+    if (!orgId) return { producerView: false, orgId: null, groupIds: [], showPrice };
     const groups = await this.prisma.customerGroupMember.findMany({
       where: { orgId },
       select: { groupId: true },
     });
-    return { producerView: false, orgId, groupIds: groups.map((g) => g.groupId) };
+    return { producerView: false, orgId, groupIds: groups.map((g) => g.groupId), showPrice };
   }
 
   async list(input: CatalogListInput, view: ViewContext) {
@@ -151,7 +155,7 @@ export class CatalogService {
         categoryName: p.category?.name ?? null,
         allowPreorder: p.allowPreorder,
         variants: p.variants.map((v) =>
-          shapeVariant(v, priceMap.get(v.id), stockMap.get(v.id)),
+          shapeVariant(v, priceMap.get(v.id), stockMap.get(v.id), view.showPrice),
         ),
       })),
       nextCursor: hasMore ? products[products.length - 1]?.id ?? null : null,
@@ -196,7 +200,7 @@ export class CatalogService {
       categorySlug: p.category?.slug ?? null,
       categoryName: p.category?.name ?? null,
       allowPreorder: p.allowPreorder,
-      variants: p.variants.map((v) => shapeVariant(v, priceMap.get(v.id), stockMap.get(v.id))),
+      variants: p.variants.map((v) => shapeVariant(v, priceMap.get(v.id), stockMap.get(v.id), view.showPrice)),
     };
   }
 
@@ -207,6 +211,24 @@ export class CatalogService {
       select: { id: true, slug: true, name: true, parentId: true, sortOrder: true },
     });
     return rows;
+  }
+
+  async createCategory(name: string) {
+    const clean = name.trim();
+    const existing = await this.prisma.category.findFirst({ where: { name: { equals: clean, mode: 'insensitive' } } });
+    if (existing) {
+      if (!existing.isActive) await this.prisma.category.update({ where: { id: existing.id }, data: { isActive: true } });
+      return { id: existing.id, slug: existing.slug, name: existing.name };
+    }
+    const base = trSlug(clean) || 'kategori';
+    let slug = base;
+    for (let i = 2; await this.prisma.category.findUnique({ where: { slug } }); i++) slug = `${base}-${i}`;
+    const max = await this.prisma.category.aggregate({ _max: { sortOrder: true } });
+    const row = await this.prisma.category.create({
+      data: { name: clean, slug, sortOrder: (max._max.sortOrder ?? 0) + 1 },
+      select: { id: true, slug: true, name: true },
+    });
+    return row;
   }
 
   private async customerList(orgId: string, create: boolean) {

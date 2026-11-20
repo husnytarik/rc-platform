@@ -90,7 +90,7 @@ function ProductCard({ productId, productName, categoryName, imageUrl, variants 
 
       <View style={styles.cardBottom}>
         <Text style={styles.cardPrice}>
-          {variant?.price ? `${variant.price.unitPrice} ${variant.price.currency}` : 'Fiyat yok'}
+          {variant?.price ? `${variant.price.unitPrice} ${variant.price.currency}` : ''}
         </Text>
         {variant?.stock.available != null && (
           <Text style={styles.stockQty}>Stok: {variant.stock.available}</Text>
@@ -190,7 +190,7 @@ export function CatalogScreen() {
                 <View key={v.id} style={styles.cardBottom}>
                   <Text style={styles.cardMeta}>{v.name}</Text>
                   <Text style={styles.cardPrice}>
-                    {v.price ? `${v.price.unitPrice} ${v.price.currency}` : 'Fiyat yok'}
+                    {v.price ? `${v.price.unitPrice} ${v.price.currency}` : ''}
                   </Text>
                 </View>
               ))}

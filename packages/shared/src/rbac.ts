@@ -64,22 +64,20 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
     'production.advance',
   ],
 
-  shipping_staff: ['order.view.all', 'order.add_line', 'shipping.advance'],
+  shipping_staff: ['catalog.view', 'order.view.all', 'order.add_line', 'shipping.advance'],
 
   customer_admin: [
     'catalog.view',
-    'price.view',
     'order.create',
     'order.view.own',
     'customer.manage', // yalnızca kendi firması — sunucu kapsamı zorlar
     'ticket.handle',
   ],
 
-  branch_manager: ['catalog.view', 'price.view', 'order.create', 'order.view.own', 'ticket.handle'],
+  branch_manager: ['catalog.view', 'order.create', 'order.view.own', 'ticket.handle'],
 
   customer_user: [
     'catalog.view',
-    'price.view',
     'order.create',
     'order.view.own',
     'ticket.handle', // destek talebi açabilir (yalnız kendi firması)

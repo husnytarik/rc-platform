@@ -33,7 +33,7 @@ const STAFF: { key: CRole; label: string }[] = [
   { key: 'producer_admin', label: 'Yönetici' },
 ];
 
-export default function BasvurularScreen() {
+export function ApplicationsPanel() {
   const utils = trpc.useUtils();
   const { can } = useAuth();
   const [busyId, setBusyId] = useState<string | null>(null);
