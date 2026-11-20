@@ -40,7 +40,6 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
 
   sales_staff: [
     'catalog.view',
-    'price.view',
     'order.view.all',
     'order.confirm',
     'order.add_line',
@@ -57,7 +56,6 @@ export const ROLE_CAPABILITIES: Record<Role, readonly Capability[]> = {
 
   production_staff: [
     'catalog.view',
-    'price.view',
     'order.view.all',
     'order.add_line',
     'order.cancel',

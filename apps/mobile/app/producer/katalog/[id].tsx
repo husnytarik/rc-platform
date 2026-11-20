@@ -55,6 +55,7 @@ function VariantEditor({ productId, variant }: { productId: string; variant: Var
   const utils = trpc.useUtils();
   const [form, setForm] = useState<VariantForm>(variant);
   const [error, setError] = useState<string | null>(null);
+  const [adv, setAdv] = useState(false);
 
   const update = trpc.catalog.updateVariant.useMutation({
     onSuccess: () => {
@@ -88,6 +89,11 @@ function VariantEditor({ productId, variant }: { productId: string; variant: Var
           <TextInput style={styles.input} value={form.qtyStep} onChangeText={(v) => setForm((f) => ({ ...f, qtyStep: v }))} keyboardType="decimal-pad" />
         </View>
       </View>
+      <TouchableOpacity onPress={() => setAdv((a) => !a)}>
+        <Text style={styles.moreText}>{adv ? '▾ Gelişmiş ayarları gizle' : '▸ Gelişmiş (içerik, az kaldı eşiği)'}</Text>
+      </TouchableOpacity>
+      {adv && (
+        <View style={styles.variantEditor}>
       <View style={styles.rowFields}>
         <View style={[styles.field, styles.flex1]}>
           <Text style={styles.label}>İçerik miktarı</Text>
@@ -111,6 +117,8 @@ function VariantEditor({ productId, variant }: { productId: string; variant: Var
           ))}
         </View>
       </View>
+        </View>
+      )}
       <TouchableOpacity style={styles.toggleRow} onPress={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}>
         <View style={[styles.checkbox, form.isActive && styles.checkboxActive]} />
         <Text style={styles.toggleLabel}>Aktif</Text>
@@ -185,15 +193,11 @@ function NewVariantForm({ productId, suggestCode }: { productId: string; suggest
     );
   }
 
-  const missing = [!form.code.trim() && 'kod', !form.name.trim() && 'ad'].filter(Boolean);
+  const missing = [!form.name.trim() && 'ad'].filter(Boolean);
   const canSubmit = missing.length === 0;
 
   return (
     <View style={styles.variantEditor}>
-      <View style={styles.field}>
-        <Text style={styles.label}>Varyant kodu</Text>
-        <TextInput style={styles.input} value={form.code} onChangeText={(v) => setForm((f) => ({ ...f, code: v }))} autoCapitalize="none" />
-      </View>
       <View style={styles.field}>
         <Text style={styles.label}>Ad</Text>
         <TextInput style={styles.input} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="ör. 1kg / Çekirdek" placeholderTextColor={colors.inkFaint} />
@@ -264,6 +268,7 @@ export default function UrunDuzenleScreen() {
   const [isActive, setIsActive] = useState(true);
   const [isService, setIsService] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
   const [openVariant, setOpenVariant] = useState<string | null>(null);
 
   useEffect(() => {
@@ -316,18 +321,6 @@ export default function UrunDuzenleScreen() {
           <Text style={styles.label}>Ad</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} />
         </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Marka</Text>
-          <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="opsiyonel" placeholderTextColor={colors.inkFaint} />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Açıklama</Text>
-          <TextInput style={[styles.input, styles.multiline]} value={description} onChangeText={setDescription} multiline placeholder="opsiyonel" placeholderTextColor={colors.inkFaint} />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Görsel</Text>
-          <ImageField value={imageUrl} onChange={setImageUrl} />
-        </View>
         {categories.data && (
           <View style={styles.field}>
             <Text style={styles.label}>Kategori</Text>
@@ -341,17 +334,36 @@ export default function UrunDuzenleScreen() {
             </View>
           </View>
         )}
+        <TouchableOpacity onPress={() => setShowMore((m) => !m)}>
+          <Text style={styles.moreText}>{showMore ? '▾ Ek ayarları gizle' : '▸ Ek ayarlar (görsel, marka, açıklama…)'}</Text>
+        </TouchableOpacity>
+        {showMore && (
+          <View style={styles.variantEditor}>
+        <View style={styles.field}>
+          <Text style={styles.label}>Marka</Text>
+          <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="opsiyonel" placeholderTextColor={colors.inkFaint} />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Açıklama</Text>
+          <TextInput style={[styles.input, styles.multiline]} value={description} onChangeText={setDescription} multiline placeholder="opsiyonel" placeholderTextColor={colors.inkFaint} />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Görsel</Text>
+          <ImageField value={imageUrl} onChange={setImageUrl} />
+        </View>
         <TouchableOpacity style={styles.toggleRow} onPress={() => setAllowPreorder((v) => !v)}>
           <View style={[styles.checkbox, allowPreorder && styles.checkboxActive]} />
           <Text style={styles.toggleLabel}>Ön siparişe izin ver</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.toggleRow} onPress={() => setIsActive((v) => !v)}>
-          <View style={[styles.checkbox, isActive && styles.checkboxActive]} />
-          <Text style={styles.toggleLabel}>Aktif (katalogda görünür)</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.toggleRow} onPress={() => setIsService((v) => !v)}>
           <View style={[styles.checkbox, isService && styles.checkboxActive]} />
           <Text style={styles.toggleLabel}>Bu bir servis (katalog listesinde satılmaz)</Text>
+        </TouchableOpacity>
+          </View>
+        )}
+        <TouchableOpacity style={styles.toggleRow} onPress={() => setIsActive((v) => !v)}>
+          <View style={[styles.checkbox, isActive && styles.checkboxActive]} />
+          <Text style={styles.toggleLabel}>Aktif (katalogda görünür)</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.saveButton, update.isPending && styles.submitButtonDisabled]}
@@ -478,5 +490,6 @@ const styles = StyleSheet.create({
   variantRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
   rowTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
   chevron: { fontSize: 18, color: colors.inkMuted, fontWeight: '700' },
+  moreText: { color: colors.inkMuted, fontSize: 13, fontWeight: '600' },
   variantEditor: { gap: spacing(2.5), paddingLeft: spacing(1) },
 });

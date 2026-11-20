@@ -30,20 +30,22 @@ export function KatalogManageScreen() {
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
         <View style={styles.headerBox}>
-          <Link href="/producer/katalog/yeni" asChild>
-            <TouchableOpacity style={styles.newButton}>
-              <Text style={styles.newButtonText}>+ Yeni ürün</Text>
-            </TouchableOpacity>
-          </Link>
-          <TextInput
-            style={styles.search}
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Ad, kod veya marka ara…"
-            placeholderTextColor={colors.inkFaint}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <View style={styles.searchRow}>
+            <TextInput
+              style={[styles.search, styles.fill]}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Ürün ara…"
+              placeholderTextColor={colors.inkFaint}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Link href="/producer/katalog/yeni" asChild>
+              <TouchableOpacity style={styles.plusBtn}>
+                <Text style={styles.plusText}>+ Ürün</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
           <CategoryChips value={categoryId} onChange={setCategoryId} mode="id" />
         </View>
       }
@@ -59,26 +61,21 @@ export function KatalogManageScreen() {
       }
       renderItem={({ item }) => (
         <Link href={{ pathname: '/producer/katalog/[id]', params: { id: item.id } }} asChild>
-          <TouchableOpacity style={styles.card}>
-            {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.cardImg} resizeMode="cover" />}
-            <View style={styles.cardTop}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <View style={styles.badgeRow}>
-                {item.isService && (
-                  <View style={styles.serviceBadge}>
-                    <Text style={styles.serviceBadgeText}>Servis</Text>
-                  </View>
-                )}
-                {!item.isActive && (
-                  <View style={styles.inactiveBadge}>
-                    <Text style={styles.inactiveBadgeText}>Pasif</Text>
-                  </View>
-                )}
-              </View>
+          <TouchableOpacity style={[styles.card, !item.isActive && styles.cardOff]}>
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.thumb} resizeMode="cover" />
+            ) : (
+              <View style={styles.thumb} />
+            )}
+            <View style={styles.fill}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.cardMeta} numberOfLines={1}>
+                {item.categoryName ?? 'Kategorisiz'} · {item.activeVariantCount} varyant
+                {item.isService ? ' · servis' : ''}
+                {!item.isActive ? ' · pasif' : ''}
+              </Text>
             </View>
-            <Text style={styles.cardMeta}>
-              {item.code} · {item.categoryName ?? '—'} · {item.activeVariantCount}/{item.variantCount} varyant aktif
-            </Text>
+            <Text style={styles.chev}>›</Text>
           </TouchableOpacity>
         </Link>
       )}
@@ -98,7 +95,7 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   flex: { flex: 1, backgroundColor: colors.bg },
-  listContent: { padding: spacing(5), gap: spacing(2.5) },
+  listContent: { padding: spacing(4), gap: spacing(2) },
   empty: { textAlign: 'center', color: colors.inkMuted, marginTop: spacing(6) },
   newButton: {
     backgroundColor: colors.accent,
@@ -111,9 +108,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing(3.5),
-    gap: spacing(1.5), ...shadow.card },
-  cardImg: { width: '100%', height: 120, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
+    padding: spacing(2.5),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(3), ...shadow.card },
+  thumb: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
+  fill: { flex: 1 },
+  cardOff: { opacity: 0.55 },
+  chev: { fontSize: 22, color: colors.inkFaint },
+  searchRow: { flexDirection: 'row', gap: spacing(2), alignItems: 'center' },
+  plusBtn: { backgroundColor: colors.accent, borderRadius: radius.sm, paddingHorizontal: spacing(3.5), paddingVertical: spacing(2.75) },
+  plusText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   cardMeta: { fontSize: 12, color: colors.inkMuted },

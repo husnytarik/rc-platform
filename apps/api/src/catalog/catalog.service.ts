@@ -91,11 +91,11 @@ export class CatalogService {
 
   /** ctx.user'dan görünüm bağlamı: üretici mi, hangi org, hangi gruplar. */
   async viewContext(memberships: CallerMembership[], roles: Role[]): Promise<ViewContext> {
+    const showPrice = canAny(roles, 'price.view');
     if (roles.some(isProducerRole)) {
-      return { producerView: true, orgId: null, groupIds: [], showPrice: true };
+      return { producerView: true, orgId: null, groupIds: [], showPrice };
     }
     const orgId = memberships.find((m) => !isProducerRole(m.role))?.orgId ?? null;
-    const showPrice = canAny(roles, 'price.view');
     if (!orgId) return { producerView: false, orgId: null, groupIds: [], showPrice };
     const groups = await this.prisma.customerGroupMember.findMany({
       where: { orgId },
